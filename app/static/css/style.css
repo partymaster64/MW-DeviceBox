@@ -169,6 +169,11 @@ body {
     color: var(--yellow);
 }
 
+.card-icon-purple {
+    background: rgba(168, 85, 247, 0.1);
+    color: #a855f7;
+}
+
 .card-body h3 {
     font-size: 0.75rem;
     text-transform: uppercase;
@@ -182,6 +187,12 @@ body {
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--text-primary);
+}
+
+.card-sub {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.1rem;
 }
 
 /* --- Sections --- */

@@ -17,4 +17,7 @@ services:
     restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 60
+    environment:
+      - WATCHTOWER_HTTP_API_METRICS=true
+      - WATCHTOWER_HTTP_API_TOKEN=devicebox-watchtower
+    command: --interval 15 --http-api-update

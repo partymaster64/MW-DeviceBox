@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     SCANNER_ENABLED: bool = False
     LOG_LEVEL: str = "INFO"
 
+    # Watchtower integration
+    WATCHTOWER_URL: str = "http://watchtower:8080"
+    WATCHTOWER_TOKEN: str = "devicebox-watchtower"
+    WATCHTOWER_INTERVAL: int = 15
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

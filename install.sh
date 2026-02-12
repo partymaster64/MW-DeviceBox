@@ -196,6 +196,9 @@ DEVICE_NAME=iot-gateway
 APP_VERSION=1.0.0
 SCANNER_ENABLED=true
 LOG_LEVEL=INFO
+WATCHTOWER_URL=http://watchtower:8080
+WATCHTOWER_TOKEN=devicebox-watchtower
+WATCHTOWER_INTERVAL=15
 ENVEOF
             log_info "Standard .env erstellt"
         fi

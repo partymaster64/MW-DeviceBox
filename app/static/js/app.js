@@ -15,11 +15,13 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchDevices();
     fetchLastScan();
     fetchHistory();
+    fetchWatchtower();
 
-    // Poll health every 10 seconds
+    // Poll health + watchtower every 10 seconds
     pollInterval = setInterval(() => {
         fetchHealth();
         fetchDevices();
+        fetchWatchtower();
     }, 10000);
 
     // Poll scanner every 2 seconds for near-realtime barcode updates
@@ -69,6 +71,41 @@ async function fetchInfo() {
         addLog('info', `Verbunden mit ${data.device_name} v${data.version}`);
     } catch (err) {
         addLog('error', `Verbindung fehlgeschlagen: ${err.message}`);
+    }
+}
+
+async function fetchWatchtower() {
+    try {
+        const res = await fetch(`${API_BASE}/watchtower/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const statusEl = document.getElementById('watchtowerStatus');
+        const detailEl = document.getElementById('watchtowerDetail');
+        const iconEl = document.getElementById('watchtowerIcon');
+
+        if (data.running) {
+            statusEl.textContent = 'Aktiv';
+            statusEl.style.color = 'var(--green)';
+            iconEl.className = 'card-icon card-icon-purple';
+
+            const parts = [];
+            parts.push(`alle ${data.interval}s`);
+            if (data.containers_scanned !== null) {
+                parts.push(`${data.containers_scanned} gescannt`);
+            }
+            if (data.containers_updated !== null && data.containers_updated > 0) {
+                parts.push(`${data.containers_updated} aktualisiert`);
+            }
+            detailEl.textContent = parts.join(' · ');
+        } else {
+            statusEl.textContent = 'Inaktiv';
+            statusEl.style.color = 'var(--red)';
+            iconEl.className = 'card-icon card-icon-purple';
+            detailEl.textContent = 'Nicht erreichbar';
+        }
+    } catch {
+        // Silently ignore
     }
 }
 

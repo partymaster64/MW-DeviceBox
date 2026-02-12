@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import devices, health, info
+from app.api import devices, health, info, watchtower
 from app.config import settings
 from app.devices.barcode_scanner import create_scanner
 from app.logging_config import setup_logging
@@ -49,6 +49,7 @@ app = FastAPI(
 app.include_router(health.router)
 app.include_router(info.router)
 app.include_router(devices.router)
+app.include_router(watchtower.router)
 
 # Serve static files (CSS, JS)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
