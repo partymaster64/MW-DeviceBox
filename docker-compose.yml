@@ -1,0 +1,20 @@
+services:
+  gateway:
+    image: ghcr.io/USERNAME/iot-gateway:latest
+    container_name: iot-gateway
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    privileged: true
+    volumes:
+      - /dev/gpiomem:/dev/gpiomem
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 60
