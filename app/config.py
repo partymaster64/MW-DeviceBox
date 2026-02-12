@@ -6,7 +6,6 @@ class Settings(BaseSettings):
 
     DEVICE_NAME: str = "iot-gateway"
     APP_VERSION: str = "1.0.0"
-    SCANNER_ENABLED: bool = False
     LOG_LEVEL: str = "INFO"
 
     # Watchtower integration

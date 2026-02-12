@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api import devices, health, info, watchtower
 from app.config import settings
-from app.devices.barcode_scanner import create_scanner
+from app.devices.barcode_scanner import BarcodeScanner
 from app.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -23,13 +23,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Startup
     setup_logging(settings.LOG_LEVEL)
     logger.info(
-        "Starting %s v%s (SCANNER_ENABLED=%s)",
+        "Starting %s v%s",
         settings.DEVICE_NAME,
         settings.APP_VERSION,
-        settings.SCANNER_ENABLED,
     )
 
-    scanner = create_scanner(enabled=settings.SCANNER_ENABLED)
+    scanner = BarcodeScanner()
     scanner.start()
     devices.set_scanner(scanner)
 
