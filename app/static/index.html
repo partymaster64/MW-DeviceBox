@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeviceBox - IoT Gateway</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.min.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-title">
+                    <i class="lucide lucide-box"></i>
+                    <h1>DeviceBox</h1>
+                </div>
+                <div class="header-status" id="connectionStatus">
+                    <i class="lucide lucide-wifi-off"></i>
+                    <span>Verbinde...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Status Cards -->
+            <section class="cards">
+                <div class="card" id="healthCard">
+                    <div class="card-icon">
+                        <i class="lucide lucide-heart-pulse"></i>
+                    </div>
+                    <div class="card-body">
+                        <h3>Status</h3>
+                        <p class="card-value" id="healthStatus">--</p>
+                    </div>
+                </div>
+
+                <div class="card" id="deviceCard">
+                    <div class="card-icon">
+                        <i class="lucide lucide-cpu"></i>
+                    </div>
+                    <div class="card-body">
+                        <h3>Geraet</h3>
+                        <p class="card-value" id="deviceName">--</p>
+                    </div>
+                </div>
+
+                <div class="card" id="versionCard">
+                    <div class="card-icon">
+                        <i class="lucide lucide-tag"></i>
+                    </div>
+                    <div class="card-body">
+                        <h3>Version</h3>
+                        <p class="card-value" id="appVersion">--</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- GPIO Section -->
+            <section class="gpio-section">
+                <div class="section-header">
+                    <i class="lucide lucide-circuit-board"></i>
+                    <h2>GPIO Steuerung</h2>
+                </div>
+
+                <!-- GPIO Read -->
+                <div class="gpio-panel">
+                    <div class="panel-header">
+                        <i class="lucide lucide-scan-search"></i>
+                        <h3>Pin lesen</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="input-group">
+                            <label for="readPin">GPIO Pin (BCM)</label>
+                            <input type="number" id="readPin" min="0" max="27" value="17" placeholder="Pin Nr.">
+                        </div>
+                        <button class="btn btn-primary" id="readBtn" onclick="readGPIO()">
+                            <i class="lucide lucide-download"></i>
+                            <span>Lesen</span>
+                        </button>
+                        <div class="result" id="readResult" style="display:none;">
+                            <div class="result-label">Wert:</div>
+                            <div class="result-value" id="readValue">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GPIO Write -->
+                <div class="gpio-panel">
+                    <div class="panel-header">
+                        <i class="lucide lucide-pen-line"></i>
+                        <h3>Pin schreiben</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="input-row">
+                            <div class="input-group">
+                                <label for="writePin">GPIO Pin (BCM)</label>
+                                <input type="number" id="writePin" min="0" max="27" value="17" placeholder="Pin Nr.">
+                            </div>
+                            <div class="input-group">
+                                <label>Wert</label>
+                                <div class="toggle-group">
+                                    <button class="toggle-btn active" id="valLow" onclick="setWriteValue(0)">
+                                        <i class="lucide lucide-zap-off"></i> LOW
+                                    </button>
+                                    <button class="toggle-btn" id="valHigh" onclick="setWriteValue(1)">
+                                        <i class="lucide lucide-zap"></i> HIGH
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-accent" id="writeBtn" onclick="writeGPIO()">
+                            <i class="lucide lucide-upload"></i>
+                            <span>Schreiben</span>
+                        </button>
+                        <div class="result" id="writeResult" style="display:none;">
+                            <div class="result-value" id="writeStatus">--</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Log Section -->
+            <section class="log-section">
+                <div class="section-header">
+                    <i class="lucide lucide-terminal"></i>
+                    <h2>Aktivitaet</h2>
+                    <button class="btn-icon" onclick="clearLog()" title="Log leeren">
+                        <i class="lucide lucide-trash-2"></i>
+                    </button>
+                </div>
+                <div class="log-container" id="logContainer">
+                    <div class="log-empty">Noch keine Aktivitaet</div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <span>DeviceBox IoT Gateway</span>
+            <span class="footer-sep">|</span>
+            <span id="footerVersion">--</span>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

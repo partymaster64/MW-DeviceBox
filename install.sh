@@ -70,6 +70,43 @@ update_system() {
     log_success "System aktualisiert"
 }
 
+# --- mDNS / Avahi einrichten ---
+
+setup_mdns() {
+    log_info "mDNS (Avahi) wird eingerichtet fuer devicebox.local..."
+
+    # Avahi installieren
+    apt-get install -y avahi-daemon avahi-utils >/dev/null 2>&1
+    log_success "avahi-daemon installiert"
+
+    # Hostname setzen
+    local target_hostname="devicebox"
+    local current_hostname
+    current_hostname=$(hostname)
+
+    if [[ "$current_hostname" != "$target_hostname" ]]; then
+        hostnamectl set-hostname "$target_hostname"
+        log_success "Hostname auf '$target_hostname' gesetzt"
+
+        # /etc/hosts aktualisieren
+        if ! grep -q "$target_hostname" /etc/hosts; then
+            sed -i "s/127\.0\.1\.1.*/127.0.1.1\t$target_hostname/" /etc/hosts
+            # Falls kein 127.0.1.1 Eintrag existiert, hinzufuegen
+            if ! grep -q "127.0.1.1" /etc/hosts; then
+                echo "127.0.1.1	$target_hostname" >> /etc/hosts
+            fi
+        fi
+        log_success "/etc/hosts aktualisiert"
+    else
+        log_success "Hostname ist bereits '$target_hostname'"
+    fi
+
+    # Avahi-Dienst aktivieren und starten
+    systemctl enable avahi-daemon
+    systemctl restart avahi-daemon
+    log_success "avahi-daemon laeuft - Geraet erreichbar unter: ${target_hostname}.local"
+}
+
 # --- Docker installieren ---
 
 install_docker() {
@@ -325,6 +362,7 @@ show_status() {
     echo ""
     echo -e "  Installationsverzeichnis: ${BLUE}$INSTALL_DIR${NC}"
     echo -e "  Konfiguration:           ${BLUE}$INSTALL_DIR/.env${NC}"
+    echo -e "  Web Dashboard:           ${BLUE}http://devicebox.local:8000${NC}"
     echo -e "  API Adresse:             ${BLUE}http://$(hostname -I | awk '{print $1}'):8000${NC}"
     echo ""
     echo -e "  ${YELLOW}Nuetzliche Befehle:${NC}"
@@ -334,8 +372,8 @@ show_status() {
     echo "    cd $INSTALL_DIR && docker compose logs -f  # Logs anzeigen"
     echo ""
     echo -e "  ${YELLOW}API testen:${NC}"
-    echo "    curl http://localhost:8000/health"
-    echo "    curl http://localhost:8000/info"
+    echo "    curl http://devicebox.local:8000/health"
+    echo "    curl http://devicebox.local:8000/info"
     echo ""
     echo -e "  ${YELLOW}Watchtower:${NC}"
     echo "    Automatische Updates sind aktiv (Intervall: 60 Sekunden)"
@@ -363,6 +401,7 @@ main() {
     check_architecture
 
     update_system
+    setup_mdns
     install_docker
     enable_docker_service
     create_service_user
