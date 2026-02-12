@@ -128,41 +128,48 @@ class BarcodeScanner:
         """Read barcode data from the HID device using the usb_barcode_scanner library."""
         try:
             from usb_barcode_scanner.scanner import BarcodeReader
-
-            reader = BarcodeReader(device_path)
-
-            while self._running:
-                # Check if device still exists
-                if not Path(device_path).exists():
-                    logger.warning("Scanner device %s lost", device_path)
-                    self._connected = False
-                    self._device_path = None
-                    return
-
-                try:
-                    barcode = reader.read_barcode()
-                except Exception:
-                    # Device was disconnected during read
-                    self._connected = False
-                    self._device_path = None
-                    return
-
-                if barcode and barcode.strip():
-                    barcode = barcode.strip()
-                    entry = ScanEntry(
-                        barcode=barcode,
-                        timestamp=datetime.now().isoformat(timespec="seconds"),
-                        device=self._device_name,
-                    )
-                    with self._lock:
-                        self._history.append(entry)
-                        if len(self._history) > MAX_HISTORY:
-                            self._history = self._history[-MAX_HISTORY:]
-                    logger.info("Barcode scanned: %s", barcode)
-
         except ImportError:
             logger.error(
                 "usb_barcode_scanner library not installed. "
-                "Install with: pip install usb-barcode-scanner-julz"
+                "Install with: pip install usb-barcode-scanner-julz. "
+                "Scanner thread will stop."
             )
             self._connected = False
+            self._running = False
+            return
+
+        try:
+            reader = BarcodeReader(device_path)
+        except Exception as exc:
+            logger.error("Failed to open scanner at %s: %s", device_path, exc)
+            self._connected = False
+            return
+
+        while self._running:
+            # Check if device still exists
+            if not Path(device_path).exists():
+                logger.warning("Scanner device %s lost", device_path)
+                self._connected = False
+                self._device_path = None
+                return
+
+            try:
+                barcode = reader.read_barcode()
+            except Exception:
+                # Device was disconnected during read
+                self._connected = False
+                self._device_path = None
+                return
+
+            if barcode and barcode.strip():
+                barcode = barcode.strip()
+                entry = ScanEntry(
+                    barcode=barcode,
+                    timestamp=datetime.now().isoformat(timespec="seconds"),
+                    device=self._device_name,
+                )
+                with self._lock:
+                    self._history.append(entry)
+                    if len(self._history) > MAX_HISTORY:
+                        self._history = self._history[-MAX_HISTORY:]
+                logger.info("Barcode scanned: %s", barcode)
