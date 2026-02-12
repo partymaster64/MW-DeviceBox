@@ -2,10 +2,14 @@
 
 Reads raw HID keyboard reports from /dev/hidraw* devices and decodes
 USB scancodes into barcode strings. No external dependencies needed.
+
+Provides both blocking and timeout-based read functions, plus a buffer
+flush utility for session-based scanning.
 """
 
 import logging
-from pathlib import Path
+import select
+from typing import BinaryIO
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +53,34 @@ SCANCODE_ENTER = 0x28
 SHIFT_MASK = 0x22
 
 
+def _decode_report(data: bytes) -> str | None:
+    """Decode a single HID report into a character.
+
+    Returns:
+        The decoded character, or None if the report is a key release,
+        Enter key, or unmapped scancode.
+    """
+    if len(data) < HID_REPORT_SIZE:
+        return None
+
+    modifier = data[0]
+    scancode = data[2]
+
+    # Skip empty reports (key release)
+    if scancode == 0:
+        return None
+
+    # Enter key handled separately by callers
+    if scancode == SCANCODE_ENTER:
+        return None
+
+    shifted = bool(modifier & SHIFT_MASK)
+    char_map = _SCANCODE_MAP_SHIFTED if shifted else _SCANCODE_MAP
+    return char_map.get(scancode)
+
+
 def read_barcode(device_path: str) -> str | None:
-    """Read a single barcode from an HID device.
+    """Read a single barcode from an HID device (blocking).
 
     Blocks until a complete barcode is received (terminated by Enter key)
     or the device is disconnected.
@@ -72,25 +102,71 @@ def read_barcode(device_path: str) -> str | None:
             data = device.read(HID_REPORT_SIZE)
 
             if not data or len(data) < HID_REPORT_SIZE:
-                # Device disconnected
                 return None
 
             modifier = data[0]
             scancode = data[2]
 
-            # Skip empty reports (key release)
             if scancode == 0:
                 continue
 
-            # Enter key = end of barcode
             if scancode == SCANCODE_ENTER:
                 result = "".join(barcode_chars)
                 return result if result else None
 
-            # Decode the scancode
             shifted = bool(modifier & SHIFT_MASK)
             char_map = _SCANCODE_MAP_SHIFTED if shifted else _SCANCODE_MAP
             char = char_map.get(scancode)
 
             if char:
                 barcode_chars.append(char)
+
+
+def flush_buffer(device: BinaryIO) -> int:
+    """Discard all buffered HID reports from the device.
+
+    Uses non-blocking select() to drain any pending data without waiting.
+
+    Args:
+        device: An open file object for the HID device (opened in 'rb' mode).
+
+    Returns:
+        Number of reports flushed.
+    """
+    flushed = 0
+    fd = device.fileno()
+    while True:
+        ready, _, _ = select.select([fd], [], [], 0)
+        if not ready:
+            break
+        data = device.read(HID_REPORT_SIZE)
+        if not data:
+            break
+        flushed += 1
+    return flushed
+
+
+def read_report_with_timeout(device: BinaryIO, timeout: float = 1.0) -> bytes | None:
+    """Read a single HID report with a timeout.
+
+    Uses select() to wait for data with a configurable timeout,
+    allowing the caller to check flags between reads.
+
+    Args:
+        device: An open file object for the HID device (opened in 'rb' mode).
+        timeout: Maximum seconds to wait for data.
+
+    Returns:
+        The raw HID report bytes, or None if the timeout elapsed
+        or the device disconnected.
+    """
+    fd = device.fileno()
+    ready, _, _ = select.select([fd], [], [], timeout)
+    if not ready:
+        return None  # Timeout
+
+    data = device.read(HID_REPORT_SIZE)
+    if not data or len(data) < HID_REPORT_SIZE:
+        return None  # Device disconnected
+
+    return data

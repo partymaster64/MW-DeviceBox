@@ -10,6 +10,7 @@ services:
     privileged: true
     volumes:
       - /dev:/dev
+      - devicebox-data:/data
 
   watchtower:
     image: containrrr/watchtower:latest
@@ -22,3 +23,6 @@ services:
       - WATCHTOWER_HTTP_API_METRICS=true
       - WATCHTOWER_HTTP_API_TOKEN=devicebox-watchtower
     command: --interval 15 --http-api-metrics
+
+volumes:
+  devicebox-data:

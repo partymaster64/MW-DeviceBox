@@ -16,9 +16,14 @@
                     <i class="lucide lucide-box"></i>
                     <h1>DeviceBox</h1>
                 </div>
-                <div class="header-status" id="connectionStatus">
-                    <i class="lucide lucide-wifi-off"></i>
-                    <span>Verbinde...</span>
+                <div class="header-actions">
+                    <a href="/settings" class="btn-icon header-settings-link" title="Einstellungen">
+                        <i class="lucide lucide-settings"></i>
+                    </a>
+                    <div class="header-status" id="connectionStatus">
+                        <i class="lucide lucide-wifi-off"></i>
+                        <span>Verbinde...</span>
+                    </div>
                 </div>
             </div>
         </header>
@@ -67,6 +72,17 @@
                         <p class="card-sub" id="watchtowerDetail"></p>
                     </div>
                 </div>
+
+                <div class="card card-clickable" id="posCard" onclick="window.location.href='/settings'">
+                    <div class="card-icon card-icon-cyan" id="posCardIcon">
+                        <i class="lucide lucide-monitor-smartphone"></i>
+                    </div>
+                    <div class="card-body">
+                        <h3>POS-Verbindung</h3>
+                        <p class="card-value" id="posStatus">--</p>
+                        <p class="card-sub" id="posDetail"></p>
+                    </div>
+                </div>
             </section>
 
             <!-- Devices Section -->
@@ -80,32 +96,6 @@
                 </div>
                 <div class="devices-list" id="devicesList">
                     <div class="device-empty">Lade Geraete...</div>
-                </div>
-            </section>
-
-            <!-- Last Barcode Section -->
-            <section class="barcode-section">
-                <div class="section-header">
-                    <i class="lucide lucide-scan-barcode"></i>
-                    <h2>Letzter Barcode</h2>
-                </div>
-                <div class="barcode-display" id="barcodeDisplay">
-                    <div class="barcode-empty">
-                        <i class="lucide lucide-scan-line"></i>
-                        <p>Warte auf Scan...</p>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Scan History Section -->
-            <section class="history-section">
-                <div class="section-header">
-                    <i class="lucide lucide-history"></i>
-                    <h2>Scan-Verlauf</h2>
-                    <span class="badge" id="historyCount">0</span>
-                </div>
-                <div class="history-list" id="historyList">
-                    <div class="history-empty">Noch keine Scans</div>
                 </div>
             </section>
 

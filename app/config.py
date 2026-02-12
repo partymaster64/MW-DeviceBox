@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     WATCHTOWER_TOKEN: str = "devicebox-watchtower"
     WATCHTOWER_INTERVAL: int = 15
 
+    # POS polling default interval (overridden by settings store)
+    POS_POLL_INTERVAL: int = 2
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

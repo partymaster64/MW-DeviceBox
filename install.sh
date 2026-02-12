@@ -198,6 +198,7 @@ LOG_LEVEL=INFO
 WATCHTOWER_URL=http://watchtower:8080
 WATCHTOWER_TOKEN=devicebox-watchtower
 WATCHTOWER_INTERVAL=15
+POS_POLL_INTERVAL=2
 ENVEOF
             log_info "Standard .env erstellt"
         fi

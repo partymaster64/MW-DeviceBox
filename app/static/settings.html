@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeviceBox - Einstellungen</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.min.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-title">
+                    <a href="/" class="header-back" title="Zurueck zum Dashboard">
+                        <i class="lucide lucide-arrow-left"></i>
+                    </a>
+                    <i class="lucide lucide-settings"></i>
+                    <h1>Einstellungen</h1>
+                </div>
+                <div class="header-status" id="connectionStatus">
+                    <i class="lucide lucide-wifi-off"></i>
+                    <span>Verbinde...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- POS Connection Section -->
+            <section class="settings-section">
+                <div class="section-header">
+                    <i class="lucide lucide-monitor-smartphone"></i>
+                    <h2>POS-Verbindung</h2>
+                </div>
+
+                <!-- Status Card -->
+                <div class="settings-status-card" id="posStatusCard">
+                    <div class="settings-status-icon" id="posStatusIcon">
+                        <i class="lucide lucide-loader"></i>
+                    </div>
+                    <div class="settings-status-body">
+                        <div class="settings-status-label" id="posStatusLabel">Lade...</div>
+                        <div class="settings-status-detail" id="posStatusDetail"></div>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label for="posUrl">
+                            <i class="lucide lucide-link"></i>
+                            POS API URL
+                        </label>
+                        <input
+                            type="url"
+                            id="posUrl"
+                            placeholder="https://pos.example.com"
+                            autocomplete="url"
+                        >
+                        <span class="form-hint">Die Basis-URL des POS-Systems (ohne /api/...)</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="posToken">
+                            <i class="lucide lucide-key"></i>
+                            API Token
+                        </label>
+                        <div class="input-with-toggle">
+                            <input
+                                type="password"
+                                id="posToken"
+                                placeholder="Token eingeben"
+                                autocomplete="off"
+                            >
+                            <button class="btn-icon input-toggle" onclick="toggleTokenVisibility()" title="Token anzeigen/verbergen">
+                                <i class="lucide lucide-eye" id="tokenToggleIcon"></i>
+                            </button>
+                        </div>
+                        <span class="form-hint">Wird vom POS-System generiert</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="posPollInterval">
+                            <i class="lucide lucide-timer"></i>
+                            Polling-Intervall (Sekunden)
+                        </label>
+                        <input
+                            type="number"
+                            id="posPollInterval"
+                            min="1"
+                            max="30"
+                            value="2"
+                        >
+                        <span class="form-hint">Wie oft das POS-System abgefragt wird (1-30s)</span>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="btn btn-secondary" onclick="testConnection()" id="btnTest">
+                            <i class="lucide lucide-plug"></i>
+                            Verbindung testen
+                        </button>
+                        <button class="btn btn-primary" onclick="saveSettings()" id="btnSave">
+                            <i class="lucide lucide-save"></i>
+                            Speichern
+                        </button>
+                    </div>
+
+                    <!-- Test result -->
+                    <div class="test-result" id="testResult" style="display: none;">
+                        <i class="lucide" id="testResultIcon"></i>
+                        <span id="testResultMessage"></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Info Section -->
+            <section class="settings-section">
+                <div class="section-header">
+                    <i class="lucide lucide-info"></i>
+                    <h2>Hinweise</h2>
+                </div>
+                <div class="settings-info">
+                    <div class="info-item">
+                        <i class="lucide lucide-shield-check"></i>
+                        <div>
+                            <strong>Token-Sicherheit</strong>
+                            <p>Der API-Token wird vom POS-System generiert und lokal auf der DeviceBox gespeichert. Er wird nur fuer die Kommunikation mit dem POS-System verwendet.</p>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <i class="lucide lucide-scan-barcode"></i>
+                        <div>
+                            <strong>Scan-Ablauf</strong>
+                            <p>Der Barcode-Scanner wird nur aktiviert wenn das POS-System eine Scan-Session anfordert. Gescannte Barcodes werden direkt an das POS-System gesendet.</p>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <i class="lucide lucide-refresh-cw"></i>
+                        <div>
+                            <strong>Polling</strong>
+                            <p>Die DeviceBox fragt das POS-System regelmaessig nach aktiven Scan-Sessions ab. Ein niedrigeres Intervall bedeutet schnellere Reaktion, aber mehr Netzwerkverkehr.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <span>DeviceBox IoT Gateway</span>
+            <span class="footer-sep">|</span>
+            <span id="footerVersion">--</span>
+        </footer>
+    </div>
+
+    <script src="/static/js/settings.js"></script>
+</body>
+</html>

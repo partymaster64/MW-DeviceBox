@@ -3,9 +3,7 @@
 // =============================================================================
 
 const API_BASE = window.location.origin;
-let lastKnownBarcode = null;
 let pollInterval = null;
-let scanPollInterval = null;
 
 // --- Initialization ---
 
@@ -13,22 +11,16 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchHealth();
     fetchInfo();
     fetchDevices();
-    fetchLastScan();
-    fetchHistory();
     fetchWatchtower();
+    fetchPosStatus();
 
-    // Poll health + watchtower every 10 seconds
+    // Poll every 5 seconds
     pollInterval = setInterval(() => {
         fetchHealth();
         fetchDevices();
         fetchWatchtower();
-    }, 10000);
-
-    // Poll scanner every 2 seconds for near-realtime barcode updates
-    scanPollInterval = setInterval(() => {
-        fetchLastScan();
-        fetchHistory();
-    }, 2000);
+        fetchPosStatus();
+    }, 5000);
 });
 
 // --- API Calls ---
@@ -109,6 +101,17 @@ async function fetchWatchtower() {
     }
 }
 
+async function fetchPosStatus() {
+    try {
+        const res = await fetch(`${API_BASE}/settings/pos/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+        renderPosStatus(data);
+    } catch {
+        // Silently ignore
+    }
+}
+
 async function fetchDevices() {
     try {
         const res = await fetch(`${API_BASE}/devices`);
@@ -120,27 +123,54 @@ async function fetchDevices() {
     }
 }
 
-async function fetchLastScan() {
-    try {
-        const res = await fetch(`${API_BASE}/devices/scanner/last-scan`);
-        const data = await res.json();
-        renderLastScan(data.scan);
-    } catch {
-        // Silently ignore polling errors
-    }
-}
-
-async function fetchHistory() {
-    try {
-        const res = await fetch(`${API_BASE}/devices/scanner/history`);
-        const data = await res.json();
-        renderHistory(data.scans, data.total);
-    } catch {
-        // Silently ignore polling errors
-    }
-}
-
 // --- Render Functions ---
+
+function renderPosStatus(data) {
+    const statusEl = document.getElementById('posStatus');
+    const detailEl = document.getElementById('posDetail');
+    const iconEl = document.getElementById('posCardIcon');
+
+    const statusMap = {
+        'not_configured': {
+            text: 'Nicht konfiguriert',
+            color: 'var(--yellow)',
+            iconClass: 'card-icon card-icon-yellow',
+        },
+        'polling': {
+            text: 'Verbunden',
+            color: 'var(--green)',
+            iconClass: 'card-icon card-icon-cyan',
+        },
+        'session_active': {
+            text: 'Scan aktiv',
+            color: 'var(--green)',
+            iconClass: 'card-icon card-icon-green',
+        },
+        'error': {
+            text: 'Fehler',
+            color: 'var(--red)',
+            iconClass: 'card-icon card-icon-red',
+        },
+        'stopped': {
+            text: 'Gestoppt',
+            color: 'var(--text-muted)',
+            iconClass: 'card-icon card-icon-cyan',
+        },
+    };
+
+    const cfg = statusMap[data.status] || statusMap['stopped'];
+
+    statusEl.textContent = cfg.text;
+    statusEl.style.color = cfg.color;
+    iconEl.className = cfg.iconClass;
+
+    const details = [];
+    if (data.detail) details.push(data.detail);
+    if (data.scanner_connected) {
+        details.push('Scanner bereit');
+    }
+    detailEl.textContent = details.join(' · ');
+}
 
 function renderDevices(devices) {
     const container = document.getElementById('devicesList');
@@ -168,64 +198,6 @@ function renderDevices(devices) {
                     <i class="lucide ${isConnected ? 'lucide-circle-check' : 'lucide-circle-x'}"></i>
                     ${isConnected ? 'Verbunden' : 'Getrennt'}
                 </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function renderLastScan(scan) {
-    const container = document.getElementById('barcodeDisplay');
-
-    if (!scan) {
-        container.innerHTML = `
-            <div class="barcode-empty">
-                <i class="lucide lucide-scan-line"></i>
-                <p>Warte auf Scan...</p>
-            </div>
-        `;
-        return;
-    }
-
-    // Detect new barcode and log it
-    if (scan.barcode !== lastKnownBarcode) {
-        if (lastKnownBarcode !== null) {
-            addLog('success', `Neuer Barcode gescannt: ${scan.barcode}`);
-        }
-        lastKnownBarcode = scan.barcode;
-    }
-
-    const time = formatTimestamp(scan.timestamp);
-
-    container.innerHTML = `
-        <div class="barcode-value">${escapeHtml(scan.barcode)}</div>
-        <div class="barcode-meta">
-            <i class="lucide lucide-clock"></i>
-            <span>${time}</span>
-            <span>&middot;</span>
-            <i class="lucide lucide-scan-barcode"></i>
-            <span>${escapeHtml(scan.device)}</span>
-        </div>
-    `;
-}
-
-function renderHistory(scans, total) {
-    const container = document.getElementById('historyList');
-    const countEl = document.getElementById('historyCount');
-
-    countEl.textContent = total;
-
-    if (!scans || scans.length === 0) {
-        container.innerHTML = '<div class="history-empty">Noch keine Scans</div>';
-        return;
-    }
-
-    container.innerHTML = scans.map(scan => {
-        const time = formatTimestamp(scan.timestamp);
-        return `
-            <div class="history-entry">
-                <i class="lucide lucide-scan-barcode history-entry-icon"></i>
-                <span class="history-entry-barcode">${escapeHtml(scan.barcode)}</span>
-                <span class="history-entry-time">${time}</span>
             </div>
         `;
     }).join('');
