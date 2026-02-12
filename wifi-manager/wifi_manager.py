@@ -404,8 +404,9 @@ class WifiManager:
             self._server.shutdown()
             self._server = None
             self._server_thread = None
-            self._portal_active = False
             logger.info("Captive-Portal gestoppt")
+
+        self._portal_active = False
 
         # Gateway Container wieder starten
         self._start_gateway_container()
