@@ -28,10 +28,18 @@ class PosSettings:
 
 
 @dataclass
+class UsbPowerSettings:
+    """USB power control settings."""
+
+    method: str = "bind_unbind"  # "bind_unbind", "uhubctl", "none"
+
+
+@dataclass
 class AppSettings:
     """All runtime-configurable settings."""
 
     pos: PosSettings = field(default_factory=PosSettings)
+    usb_power: UsbPowerSettings = field(default_factory=UsbPowerSettings)
 
 
 class SettingsStore:
@@ -52,11 +60,15 @@ class SettingsStore:
         try:
             raw = json.loads(self._path.read_text(encoding="utf-8"))
             pos_raw = raw.get("pos", {})
+            usb_raw = raw.get("usb_power", {})
             self._settings = AppSettings(
                 pos=PosSettings(
                     url=pos_raw.get("url", ""),
                     token=pos_raw.get("token", ""),
                     poll_interval=int(pos_raw.get("poll_interval", 2)),
+                ),
+                usb_power=UsbPowerSettings(
+                    method=usb_raw.get("method", "bind_unbind"),
                 ),
             )
             logger.info("Settings loaded from %s", self._path)
@@ -119,3 +131,31 @@ class SettingsStore:
         """Check if POS URL and token are both set."""
         with self._lock:
             return bool(self._settings.pos.url and self._settings.pos.token)
+
+    @property
+    def usb_power(self) -> UsbPowerSettings:
+        """Get a snapshot of the current USB power settings."""
+        with self._lock:
+            return UsbPowerSettings(
+                method=self._settings.usb_power.method,
+            )
+
+    def update_usb_power(
+        self,
+        method: str | None = None,
+    ) -> UsbPowerSettings:
+        """Update USB power settings and persist to disk.
+
+        Returns:
+            The updated UsbPowerSettings.
+        """
+        with self._lock:
+            if method is not None:
+                if method not in ("bind_unbind", "uhubctl", "none"):
+                    logger.warning("Invalid USB power method: %s", method)
+                    method = "bind_unbind"
+                self._settings.usb_power.method = method
+            self._save()
+            return UsbPowerSettings(
+                method=self._settings.usb_power.method,
+            )

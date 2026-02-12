@@ -1,16 +1,21 @@
 """USB device auto-discovery via sysfs.
 
 Scans /sys/class/hidraw/ to find HID devices matching known USB vendor/product
-IDs and returns the corresponding /dev/hidraw* path.
+IDs and returns the corresponding /dev/hidraw* path plus the USB device ID
+needed for bind/unbind power control.
 """
 
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 SYSFS_HIDRAW = Path("/sys/class/hidraw")
+
+# Pattern to match USB device directory names like "1-1", "1-1.2", "3-1.4"
+_USB_DEVICE_ID_RE = re.compile(r"^\d+-[\d.]+$")
 
 
 @dataclass(frozen=True)
@@ -37,13 +42,14 @@ KNOWN_DEVICES: list[KnownDevice] = [
 
 @dataclass(frozen=True)
 class DiscoveredDevice:
-    """A discovered USB device with its /dev path."""
+    """A discovered USB device with its /dev path and USB device ID."""
 
     hidraw_path: str
     vendor_id: str
     product_id: str
     name: str
     device_type: str
+    usb_device_id: str  # e.g. "1-1.2" for bind/unbind power control
 
 
 def _read_sysfs_attr(path: Path) -> str | None:
@@ -54,22 +60,25 @@ def _read_sysfs_attr(path: Path) -> str | None:
         return None
 
 
-def _find_usb_ids_for_hidraw(hidraw_name: str) -> tuple[str, str] | None:
-    """Walk the sysfs tree for a hidraw device to find its USB vendor/product ID.
+def _find_usb_info_for_hidraw(
+    hidraw_name: str,
+) -> tuple[str, str, str] | None:
+    """Walk the sysfs tree for a hidraw device to find USB vendor/product ID
+    and the USB device directory name.
 
     Args:
         hidraw_name: e.g. "hidraw0"
 
     Returns:
-        Tuple of (vendor_id, product_id) in lowercase hex, or None if not found.
+        Tuple of (vendor_id, product_id, usb_device_id) or None if not found.
+        vendor_id and product_id are lowercase hex strings.
+        usb_device_id is the sysfs directory name like "1-1.2".
     """
     sysfs_path = SYSFS_HIDRAW / hidraw_name
 
     if not sysfs_path.exists():
         return None
 
-    # Resolve the real path and walk up the directory tree
-    # looking for idVendor and idProduct files (present at the USB device level)
     try:
         real_path = sysfs_path.resolve()
     except OSError:
@@ -84,7 +93,13 @@ def _find_usb_ids_for_hidraw(hidraw_name: str) -> tuple[str, str] | None:
             vendor = _read_sysfs_attr(vendor_file)
             product = _read_sysfs_attr(product_file)
             if vendor and product:
-                return (vendor.lower(), product.lower())
+                # The directory name at this level is the USB device ID
+                # e.g. "1-1.2" from /sys/devices/.../1-1.2/
+                usb_device_id = current.name
+                if not _USB_DEVICE_ID_RE.match(usb_device_id):
+                    # Fallback: walk up to find a proper USB device ID
+                    usb_device_id = _find_usb_device_id_from_path(current)
+                return (vendor.lower(), product.lower(), usb_device_id)
 
         parent = current.parent
         if parent == current:
@@ -92,6 +107,23 @@ def _find_usb_ids_for_hidraw(hidraw_name: str) -> tuple[str, str] | None:
         current = parent
 
     return None
+
+
+def _find_usb_device_id_from_path(path: Path) -> str:
+    """Extract the USB device ID from a sysfs path by finding
+    a directory component that matches the USB device ID pattern.
+
+    Falls back to the path name if no match is found.
+    """
+    current = path
+    for _ in range(10):
+        if _USB_DEVICE_ID_RE.match(current.name):
+            return current.name
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+    return path.name
 
 
 def discover_devices() -> list[DiscoveredDevice]:
@@ -118,32 +150,36 @@ def discover_devices() -> list[DiscoveredDevice]:
 
     for entry in hidraw_entries:
         hidraw_name = entry.name  # e.g. "hidraw0"
-        ids = _find_usb_ids_for_hidraw(hidraw_name)
+        info = _find_usb_info_for_hidraw(hidraw_name)
 
-        if ids is None:
+        if info is None:
             continue
 
-        known = known_lookup.get(ids)
+        vendor_id, product_id, usb_device_id = info
+
+        known = known_lookup.get((vendor_id, product_id))
         if known is not None:
             dev_path = f"/dev/{hidraw_name}"
             device = DiscoveredDevice(
                 hidraw_path=dev_path,
-                vendor_id=ids[0],
-                product_id=ids[1],
+                vendor_id=vendor_id,
+                product_id=product_id,
                 name=known.name,
                 device_type=known.device_type,
+                usb_device_id=usb_device_id,
             )
             discovered.append(device)
             logger.info(
-                "Discovered %s (%s:%s) at %s",
+                "Discovered %s (%s:%s) at %s [usb=%s]",
                 known.name,
-                ids[0],
-                ids[1],
+                vendor_id,
+                product_id,
                 dev_path,
+                usb_device_id,
             )
 
     if not discovered:
-        logger.info("No known USB devices found")
+        logger.debug("No known USB devices found")
 
     return discovered
 

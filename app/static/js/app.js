@@ -181,26 +181,56 @@ function renderDevices(devices) {
     }
 
     container.innerHTML = devices.map(device => {
-        const isConnected = device.connected;
         const typeLabel = getDeviceTypeLabel(device.type);
         const typeIcon = getDeviceTypeIcon(device.type);
+        const powerState = device.power_state || 'unknown';
+
+        // Determine display status based on power state and connection
+        let statusClass, statusIcon, statusLabel;
+        if (device.connected) {
+            statusClass = 'connected';
+            statusIcon = 'lucide-circle-check';
+            statusLabel = 'Verbunden';
+        } else if (powerState === 'off') {
+            statusClass = 'standby';
+            statusIcon = 'lucide-moon';
+            statusLabel = 'Standby';
+        } else {
+            statusClass = 'disconnected';
+            statusIcon = 'lucide-circle-x';
+            statusLabel = 'Getrennt';
+        }
+
+        // Power badge
+        const powerBadge = getPowerBadge(powerState);
 
         return `
             <div class="device-card">
-                <div class="device-card-icon ${isConnected ? 'connected' : ''}">
+                <div class="device-card-icon ${statusClass}">
                     <i class="lucide ${typeIcon}"></i>
                 </div>
                 <div class="device-card-body">
-                    <div class="device-card-name">${escapeHtml(device.name)}</div>
+                    <div class="device-card-name">${escapeHtml(device.name)} ${powerBadge}</div>
                     <div class="device-card-meta">${typeLabel} &middot; ${escapeHtml(device.device_path)}</div>
                 </div>
-                <div class="device-card-status ${isConnected ? 'connected' : 'disconnected'}">
-                    <i class="lucide ${isConnected ? 'lucide-circle-check' : 'lucide-circle-x'}"></i>
-                    ${isConnected ? 'Verbunden' : 'Getrennt'}
+                <div class="device-card-status ${statusClass}">
+                    <i class="lucide ${statusIcon}"></i>
+                    ${statusLabel}
                 </div>
             </div>
         `;
     }).join('');
+}
+
+function getPowerBadge(powerState) {
+    const config = {
+        'on': { icon: 'lucide-zap', label: 'USB an', cssClass: 'power-on' },
+        'off': { icon: 'lucide-zap-off', label: 'USB aus', cssClass: 'power-off' },
+        'unknown': { icon: 'lucide-help-circle', label: 'USB ?', cssClass: 'power-unknown' },
+    };
+
+    const cfg = config[powerState] || config['unknown'];
+    return `<span class="power-badge ${cfg.cssClass}"><i class="lucide ${cfg.icon}"></i>${cfg.label}</span>`;
 }
 
 // --- UI Helpers ---

@@ -115,6 +115,51 @@
                 </div>
             </section>
 
+            <!-- USB Power Section -->
+            <section class="settings-section">
+                <div class="section-header">
+                    <i class="lucide lucide-zap"></i>
+                    <h2>USB-Stromsteuerung</h2>
+                </div>
+
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label for="usbPowerMethod">
+                            <i class="lucide lucide-plug-zap"></i>
+                            Methode
+                        </label>
+                        <select id="usbPowerMethod">
+                            <option value="bind_unbind">Bind/Unbind (Standard)</option>
+                            <option value="uhubctl">uhubctl (Strom abschalten)</option>
+                            <option value="none">Deaktiviert</option>
+                        </select>
+                        <span class="form-hint" id="usbPowerHint">
+                            Bind/Unbind trennt das Geraet logisch vom System. Sicher fuer andere USB-Geraete.
+                        </span>
+                        <div class="uhubctl-warning" id="uhubctlWarning" style="display: none;">
+                            <i class="lucide lucide-triangle-alert"></i>
+                            <span>uhubctl schaltet auf dem Raspberry Pi 5 <strong>alle USB-Ports gleichzeitig</strong> ab. Nur verwenden wenn der Scanner das einzige USB-Geraet ist.</span>
+                        </div>
+                        <div class="uhubctl-unavailable" id="uhubctlUnavailable" style="display: none;">
+                            <i class="lucide lucide-circle-alert"></i>
+                            <span>uhubctl ist nicht installiert oder nicht verfuegbar.</span>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="btn btn-primary" onclick="saveUsbPowerSettings()" id="btnSaveUsb">
+                            <i class="lucide lucide-save"></i>
+                            Speichern
+                        </button>
+                    </div>
+
+                    <div class="test-result" id="usbTestResult" style="display: none;">
+                        <i class="lucide" id="usbTestResultIcon"></i>
+                        <span id="usbTestResultMessage"></span>
+                    </div>
+                </div>
+            </section>
+
             <!-- Info Section -->
             <section class="settings-section">
                 <div class="section-header">
@@ -141,6 +186,13 @@
                         <div>
                             <strong>Polling</strong>
                             <p>Die DeviceBox fragt das POS-System regelmaessig nach aktiven Scan-Sessions ab. Ein niedrigeres Intervall bedeutet schnellere Reaktion, aber mehr Netzwerkverkehr.</p>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <i class="lucide lucide-zap"></i>
+                        <div>
+                            <strong>USB-Stromsteuerung</strong>
+                            <p>Der USB-Port des Scanners wird automatisch ein-/ausgeschaltet wenn eine Scan-Session startet/endet. Bei "Bind/Unbind" wird der Scanner logisch getrennt. Bei "uhubctl" wird der Strom physisch abgeschaltet (betrifft alle USB-Ports).</p>
                         </div>
                     </div>
                 </div>

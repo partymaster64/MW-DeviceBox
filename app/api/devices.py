@@ -40,6 +40,7 @@ class DeviceInfo(BaseModel):
     device_path: str
     connected: bool
     session_active: bool
+    power_state: str  # "on", "off", "unknown"
 
 
 class DevicesResponse(BaseModel):
@@ -60,6 +61,7 @@ async def list_devices() -> DevicesResponse:
             device_path=scanner.device_path,
             connected=scanner.is_connected,
             session_active=scanner.session_active,
+            power_state=scanner.power_state,
         )
     ]
     return DevicesResponse(devices=devices)

@@ -10,6 +10,7 @@ let statusPollInterval = null;
 document.addEventListener('DOMContentLoaded', () => {
     checkHealth();
     loadSettings();
+    loadUsbPowerSettings();
     loadPosStatus();
     fetchFooterVersion();
 
@@ -17,6 +18,9 @@ document.addEventListener('DOMContentLoaded', () => {
     statusPollInterval = setInterval(() => {
         loadPosStatus();
     }, 3000);
+
+    // USB power method change handler
+    document.getElementById('usbPowerMethod').addEventListener('change', updateUsbPowerHints);
 });
 
 // --- API Calls ---
@@ -247,6 +251,86 @@ function toggleTokenVisibility() {
         input.type = 'password';
         icon.className = 'lucide lucide-eye';
     }
+}
+
+// --- USB Power Settings ---
+
+let _uhubctlAvailable = false;
+
+async function loadUsbPowerSettings() {
+    try {
+        const res = await fetch(`${API_BASE}/settings/usb-power`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        _uhubctlAvailable = data.uhubctl_available;
+        document.getElementById('usbPowerMethod').value = data.method || 'bind_unbind';
+        updateUsbPowerHints();
+    } catch (err) {
+        console.error('Failed to load USB power settings:', err);
+    }
+}
+
+function updateUsbPowerHints() {
+    const method = document.getElementById('usbPowerMethod').value;
+    const hintEl = document.getElementById('usbPowerHint');
+    const warningEl = document.getElementById('uhubctlWarning');
+    const unavailEl = document.getElementById('uhubctlUnavailable');
+
+    warningEl.style.display = 'none';
+    unavailEl.style.display = 'none';
+
+    if (method === 'bind_unbind') {
+        hintEl.textContent = 'Bind/Unbind trennt das Geraet logisch vom System. Sicher fuer andere USB-Geraete.';
+    } else if (method === 'uhubctl') {
+        hintEl.textContent = 'uhubctl schaltet den USB-Strom physisch ab. Scanner startet bei Aktivierung komplett neu.';
+        warningEl.style.display = 'flex';
+        if (!_uhubctlAvailable) {
+            unavailEl.style.display = 'flex';
+        }
+    } else {
+        hintEl.textContent = 'USB-Stromsteuerung deaktiviert. Scanner bleibt dauerhaft eingeschaltet.';
+    }
+}
+
+async function saveUsbPowerSettings() {
+    const btn = document.getElementById('btnSaveUsb');
+    btn.disabled = true;
+
+    const method = document.getElementById('usbPowerMethod').value;
+
+    try {
+        const res = await fetch(`${API_BASE}/settings/usb-power`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ method }),
+        });
+
+        if (res.ok) {
+            showUsbTestResult(true, 'USB-Einstellungen gespeichert');
+        } else {
+            showUsbTestResult(false, `Fehler beim Speichern (HTTP ${res.status})`);
+        }
+    } catch (err) {
+        showUsbTestResult(false, `Fehler: ${err.message}`);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function showUsbTestResult(success, message) {
+    const container = document.getElementById('usbTestResult');
+    const icon = document.getElementById('usbTestResultIcon');
+    const msg = document.getElementById('usbTestResultMessage');
+
+    container.style.display = 'flex';
+    container.className = `test-result ${success ? 'test-success' : 'test-error'}`;
+    icon.className = `lucide ${success ? 'lucide-circle-check' : 'lucide-circle-x'}`;
+    msg.textContent = message;
+
+    setTimeout(() => {
+        container.style.display = 'none';
+    }, 5000);
 }
 
 // --- UI Helpers ---
