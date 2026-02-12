@@ -88,6 +88,7 @@ class WifiManager:
 
     def __init__(self) -> None:
         self._ap_active = False
+        self._portal_active = False
         self._server: socketserver.TCPServer | None = None
         self._server_thread: threading.Thread | None = None
         self._running = True
@@ -389,8 +390,10 @@ class WifiManager:
                 name="captive-portal",
             )
             self._server_thread.start()
+            self._portal_active = True
             logger.info("Captive-Portal gestartet auf Port %d", PORTAL_PORT)
         except OSError as exc:
+            self._portal_active = False
             logger.error("Portal-Start fehlgeschlagen (Port %d belegt?): %s", PORTAL_PORT, exc)
             # Port immer noch belegt → Gateway Container vielleicht wieder starten
             self._start_gateway_container()
@@ -401,6 +404,7 @@ class WifiManager:
             self._server.shutdown()
             self._server = None
             self._server_thread = None
+            self._portal_active = False
             logger.info("Captive-Portal gestoppt")
 
         # Gateway Container wieder starten
@@ -440,13 +444,18 @@ class WifiManager:
                         self._consecutive_failures >= FAILURE_THRESHOLD
                         and not self._ap_active
                     ):
-                        ssid = self.get_current_ssid()
                         logger.info(
                             "Kein WLAN seit %ds – Access-Point wird gestartet",
                             self._consecutive_failures * CHECK_INTERVAL,
                         )
                         self.start_ap()
                         time.sleep(2)
+                        self.start_portal()
+
+                    elif self._ap_active and not self._portal_active:
+                        # AP laeuft aber Portal nicht (z.B. Port 80 war belegt)
+                        # → Retry Portal-Start
+                        logger.info("AP aktiv aber Portal nicht – Retry Portal-Start")
                         self.start_portal()
 
                 time.sleep(CHECK_INTERVAL)
