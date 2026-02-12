@@ -29,11 +29,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.SCANNER_ENABLED,
     )
 
-    scanner = create_scanner(
-        enabled=settings.SCANNER_ENABLED,
-        device_path=settings.SCANNER_DEVICE,
-        name=settings.SCANNER_NAME,
-    )
+    scanner = create_scanner(enabled=settings.SCANNER_ENABLED)
     scanner.start()
     devices.set_scanner(scanner)
 

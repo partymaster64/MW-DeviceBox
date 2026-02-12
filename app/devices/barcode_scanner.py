@@ -5,10 +5,15 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from app.devices.usb_discovery import find_barcode_scanner
+
 logger = logging.getLogger(__name__)
 
 # Maximum number of scans to keep in history
 MAX_HISTORY = 100
+
+# How often to re-scan for the device when not connected (seconds)
+DISCOVERY_INTERVAL = 3
 
 
 @dataclass
@@ -22,15 +27,15 @@ class ScanEntry:
 
 @dataclass
 class BarcodeScanner:
-    """Manages a USB barcode scanner running in a background thread."""
+    """Manages a USB barcode scanner with auto-discovery and background reading."""
 
-    device_path: str = "/dev/hidraw0"
-    name: str = "Datalogic Touch 65"
     _running: bool = field(default=False, init=False, repr=False)
     _thread: threading.Thread | None = field(default=None, init=False, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _history: list[ScanEntry] = field(default_factory=list, init=False, repr=False)
     _connected: bool = field(default=False, init=False, repr=False)
+    _device_path: str | None = field(default=None, init=False, repr=False)
+    _device_name: str = field(default="Barcode Scanner", init=False, repr=False)
 
     def start(self) -> None:
         """Start the background scanner thread."""
@@ -40,10 +45,10 @@ class BarcodeScanner:
         self._thread = threading.Thread(
             target=self._scan_loop,
             daemon=True,
-            name=f"scanner-{self.device_path}",
+            name="barcode-scanner",
         )
         self._thread.start()
-        logger.info("Barcode scanner started on %s", self.device_path)
+        logger.info("Barcode scanner thread started (auto-discovery active)")
 
     def stop(self) -> None:
         """Stop the background scanner thread."""
@@ -59,6 +64,16 @@ class BarcodeScanner:
         return self._connected
 
     @property
+    def device_path(self) -> str:
+        """Current device path or 'auto' if not yet discovered."""
+        return self._device_path or "auto"
+
+    @property
+    def name(self) -> str:
+        """Display name of the scanner."""
+        return self._device_name
+
+    @property
     def last_scan(self) -> ScanEntry | None:
         """Get the most recent scan entry."""
         with self._lock:
@@ -71,43 +86,57 @@ class BarcodeScanner:
             return list(reversed(self._history))
 
     def _scan_loop(self) -> None:
-        """Background loop that reads barcodes from the HID device."""
+        """Background loop: discover scanner, read barcodes, reconnect on disconnect."""
         while self._running:
             try:
-                if not Path(self.device_path).exists():
+                # Auto-discover the scanner
+                discovered = find_barcode_scanner()
+
+                if discovered is None:
                     if self._connected:
-                        logger.warning("Scanner device %s disconnected", self.device_path)
+                        logger.warning("Scanner disconnected")
                         self._connected = False
-                    time.sleep(2)
+                        self._device_path = None
+                    time.sleep(DISCOVERY_INTERVAL)
                     continue
 
+                self._device_path = discovered.hidraw_path
+                self._device_name = discovered.name
                 self._connected = True
-                logger.info("Scanner device %s connected, reading...", self.device_path)
-                self._read_device()
+                logger.info(
+                    "Scanner found: %s at %s",
+                    discovered.name,
+                    discovered.hidraw_path,
+                )
+
+                # Read barcodes until device disconnects
+                self._read_device(discovered.hidraw_path)
 
             except PermissionError:
                 logger.error(
-                    "Permission denied for %s - ensure the container has access",
-                    self.device_path,
+                    "Permission denied for %s - ensure the container has device access",
+                    self._device_path,
                 )
                 self._connected = False
                 time.sleep(5)
             except Exception as exc:
-                logger.error("Scanner error on %s: %s", self.device_path, exc)
+                logger.error("Scanner error: %s", exc)
                 self._connected = False
-                time.sleep(2)
+                time.sleep(DISCOVERY_INTERVAL)
 
-    def _read_device(self) -> None:
+    def _read_device(self, device_path: str) -> None:
         """Read barcode data from the HID device using the usb_barcode_scanner library."""
         try:
             from usb_barcode_scanner.scanner import BarcodeReader
 
-            reader = BarcodeReader(self.device_path)
+            reader = BarcodeReader(device_path)
 
             while self._running:
-                if not Path(self.device_path).exists():
-                    logger.warning("Scanner device %s lost", self.device_path)
+                # Check if device still exists
+                if not Path(device_path).exists():
+                    logger.warning("Scanner device %s lost", device_path)
                     self._connected = False
+                    self._device_path = None
                     return
 
                 try:
@@ -115,6 +144,7 @@ class BarcodeScanner:
                 except Exception:
                     # Device was disconnected during read
                     self._connected = False
+                    self._device_path = None
                     return
 
                 if barcode and barcode.strip():
@@ -122,7 +152,7 @@ class BarcodeScanner:
                     entry = ScanEntry(
                         barcode=barcode,
                         timestamp=datetime.now().isoformat(timespec="seconds"),
-                        device=self.name,
+                        device=self._device_name,
                     )
                     with self._lock:
                         self._history.append(entry)
@@ -142,8 +172,10 @@ class MockBarcodeScanner(BarcodeScanner):
     """Mock scanner for development without a real scanner device."""
 
     def __init__(self) -> None:
-        super().__init__(device_path="/dev/null", name="Mock Scanner")
+        super().__init__()
         self._connected = True
+        self._device_path = "/dev/null"
+        self._device_name = "Mock Scanner"
         # Add a sample scan entry
         self._history = [
             ScanEntry(
@@ -161,25 +193,16 @@ class MockBarcodeScanner(BarcodeScanner):
         logger.info("MockBarcodeScanner stopped")
 
 
-def create_scanner(enabled: bool, device_path: str, name: str) -> BarcodeScanner:
+def create_scanner(enabled: bool) -> BarcodeScanner:
     """Factory function to create the appropriate scanner instance.
 
     Args:
-        enabled: If True, creates a real scanner. If False, creates a mock.
-        device_path: Path to the HID device (e.g. /dev/hidraw0).
-        name: Display name of the scanner.
+        enabled: If True, creates a real auto-detecting scanner.
+                 If False, creates a mock scanner.
 
     Returns:
         A BarcodeScanner instance.
     """
     if enabled:
-        if Path(device_path).exists():
-            return BarcodeScanner(device_path=device_path, name=name)
-        else:
-            logger.warning(
-                "SCANNER_ENABLED is True but %s not found. Using real scanner "
-                "anyway (will connect when device appears).",
-                device_path,
-            )
-            return BarcodeScanner(device_path=device_path, name=name)
+        return BarcodeScanner()
     return MockBarcodeScanner()
