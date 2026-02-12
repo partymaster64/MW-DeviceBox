@@ -18,6 +18,11 @@ RUN groupadd --gid 1000 appuser && \
     useradd --uid 1000 --gid appuser --shell /bin/bash appuser && \
     chown -R appuser:appuser /app
 
+# Create /data directory for persistent settings (Docker volume mount point).
+# Ownership must be set BEFORE switching user so the volume inherits
+# the correct permissions on first mount.
+RUN mkdir -p /data && chown appuser:appuser /data
+
 USER appuser
 
 EXPOSE 8000
