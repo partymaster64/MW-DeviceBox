@@ -7,6 +7,7 @@ BarcodeScanner to start forwarding scanned barcodes back to the POS.
 
 import json
 import logging
+import ssl
 import threading
 import time
 from urllib.error import HTTPError, URLError
@@ -16,6 +17,18 @@ from app.devices.barcode_scanner import BarcodeScanner, ScanEntry
 from app.services.settings_store import SettingsStore
 
 logger = logging.getLogger(__name__)
+
+# SSL context that works with both verified and self-signed certificates.
+# On an IoT local network, the Bearer token provides authentication;
+# we still use HTTPS for transport encryption but tolerate self-signed certs.
+_ssl_ctx = ssl.create_default_context()
+_ssl_ctx.check_hostname = False
+_ssl_ctx.verify_mode = ssl.CERT_NONE
+
+
+def _urlopen(req: Request, timeout: int = 5):
+    """Open a URL with SSL support and timeout."""
+    return urlopen(req, timeout=timeout, context=_ssl_ctx)
 
 
 class PosPollingStatus:
@@ -183,7 +196,7 @@ class PosPollingService:
             req.add_header("Authorization", f"Bearer {token}")
             req.add_header("Accept", "application/json")
 
-            with urlopen(req, timeout=5) as resp:
+            with _urlopen(req) as resp:
                 body = resp.read().decode("utf-8")
                 return json.loads(body)
 
@@ -203,8 +216,16 @@ class PosPollingService:
             logger.debug("POS API not reachable: %s", exc)
             return None
         except (json.JSONDecodeError, ValueError) as exc:
-            self._set_status(PosPollingStatus.ERROR, "Ungueltige Antwort")
-            logger.warning("POS API returned invalid JSON: %s", exc)
+            self._set_status(
+                PosPollingStatus.ERROR,
+                "Antwort ist kein JSON",
+            )
+            logger.warning(
+                "POS API returned invalid JSON from %s: %s (body: %.200s)",
+                endpoint,
+                exc,
+                body if "body" in dir() else "<unreadable>",
+            )
             return None
 
     def _send_barcode(
@@ -231,7 +252,7 @@ class PosPollingService:
             req.add_header("Authorization", f"Bearer {token}")
             req.add_header("Content-Type", "application/json")
 
-            with urlopen(req, timeout=5) as resp:
+            with _urlopen(req) as resp:
                 resp.read()
                 logger.info(
                     "Barcode sent to POS: %s (session %s)",
@@ -255,23 +276,37 @@ class PosPollingService:
             Tuple of (success, message).
         """
         endpoint = f"{url.rstrip('/')}/api/devicebox/session"
+        body = ""
         try:
             req = Request(endpoint)
             req.add_header("Authorization", f"Bearer {token}")
             req.add_header("Accept", "application/json")
 
-            with urlopen(req, timeout=5) as resp:
+            with _urlopen(req) as resp:
                 body = resp.read().decode("utf-8")
+                content_type = resp.headers.get("Content-Type", "")
+                logger.info(
+                    "POS test response: status=%d, type=%s, body=%.200s",
+                    resp.status,
+                    content_type,
+                    body,
+                )
                 data = json.loads(body)
                 if "active" in data:
                     return True, "Verbindung erfolgreich"
-                return False, "Unerwartetes Antwortformat"
+                return False, f"Unerwartetes Antwortformat: {list(data.keys())}"
 
         except HTTPError as exc:
             if exc.code == 401:
                 return False, "Token ungueltig (401 Unauthorized)"
-            return False, f"HTTP-Fehler: {exc.code}"
+            # Try to read the error body for more info
+            try:
+                err_body = exc.read().decode("utf-8")[:200]
+                return False, f"HTTP {exc.code}: {err_body}"
+            except Exception:
+                return False, f"HTTP-Fehler: {exc.code}"
         except (URLError, OSError, TimeoutError) as exc:
             return False, f"Nicht erreichbar: {exc}"
         except (json.JSONDecodeError, ValueError):
-            return False, "Ungueltige JSON-Antwort"
+            preview = body[:200] if body else "<leer>"
+            return False, f"Antwort ist kein JSON: {preview}"
