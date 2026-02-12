@@ -98,7 +98,11 @@ class SettingsStore:
         """
         with self._lock:
             if url is not None:
-                self._settings.pos.url = url.rstrip("/")
+                url = url.strip().rstrip("/")
+                # Auto-prepend https:// if no protocol given
+                if url and not url.startswith(("http://", "https://")):
+                    url = f"https://{url}"
+                self._settings.pos.url = url
             if token is not None:
                 self._settings.pos.token = token
             if poll_interval is not None:

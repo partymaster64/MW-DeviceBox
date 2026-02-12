@@ -25,6 +25,16 @@ _ssl_ctx = ssl.create_default_context()
 _ssl_ctx.check_hostname = False
 _ssl_ctx.verify_mode = ssl.CERT_NONE
 
+# User-Agent to avoid being blocked by CDNs like Cloudflare
+_USER_AGENT = "DeviceBox/1.0"
+
+
+def _make_request(url: str, **kwargs) -> Request:
+    """Create a Request with the standard User-Agent header."""
+    req = Request(url, **kwargs)
+    req.add_header("User-Agent", _USER_AGENT)
+    return req
+
 
 def _urlopen(req: Request, timeout: int = 5):
     """Open a URL with SSL support and timeout."""
@@ -192,7 +202,7 @@ class PosPollingService:
         """
         endpoint = f"{url}/api/devicebox/session"
         try:
-            req = Request(endpoint)
+            req = _make_request(endpoint)
             req.add_header("Authorization", f"Bearer {token}")
             req.add_header("Accept", "application/json")
 
@@ -212,10 +222,10 @@ class PosPollingService:
                 logger.warning("POS API error: HTTP %d", exc.code)
             return None
         except (URLError, OSError, TimeoutError) as exc:
-            self._set_status(PosPollingStatus.ERROR, "POS nicht erreichbar")
-            logger.debug("POS API not reachable: %s", exc)
+            self._set_status(PosPollingStatus.ERROR, f"POS nicht erreichbar: {exc}")
+            logger.warning("POS API not reachable (%s): %s", endpoint, exc)
             return None
-        except (json.JSONDecodeError, ValueError) as exc:
+        except json.JSONDecodeError as exc:
             self._set_status(
                 PosPollingStatus.ERROR,
                 "Antwort ist kein JSON",
@@ -226,6 +236,11 @@ class PosPollingService:
                 exc,
                 body if "body" in dir() else "<unreadable>",
             )
+            return None
+        except ValueError as exc:
+            # e.g. "unknown url type" when protocol prefix is missing
+            self._set_status(PosPollingStatus.ERROR, f"Ungueltige URL: {exc}")
+            logger.error("POS URL invalid (%s): %s", endpoint, exc)
             return None
 
     def _send_barcode(
@@ -248,7 +263,7 @@ class PosPollingService:
         ).encode("utf-8")
 
         try:
-            req = Request(endpoint, data=payload, method="POST")
+            req = _make_request(endpoint, data=payload, method="POST")
             req.add_header("Authorization", f"Bearer {token}")
             req.add_header("Content-Type", "application/json")
 
@@ -278,7 +293,7 @@ class PosPollingService:
         endpoint = f"{url.rstrip('/')}/api/devicebox/session"
         body = ""
         try:
-            req = Request(endpoint)
+            req = _make_request(endpoint)
             req.add_header("Authorization", f"Bearer {token}")
             req.add_header("Accept", "application/json")
 
@@ -307,6 +322,8 @@ class PosPollingService:
                 return False, f"HTTP-Fehler: {exc.code}"
         except (URLError, OSError, TimeoutError) as exc:
             return False, f"Nicht erreichbar: {exc}"
-        except (json.JSONDecodeError, ValueError):
+        except json.JSONDecodeError:
             preview = body[:200] if body else "<leer>"
             return False, f"Antwort ist kein JSON: {preview}"
+        except ValueError as exc:
+            return False, f"Ungueltige URL: {exc}"
