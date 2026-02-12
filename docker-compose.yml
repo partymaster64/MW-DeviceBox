@@ -4,7 +4,7 @@ services:
     container_name: iot-gateway
     restart: always
     ports:
-      - "8000:8000"
+      - "80:8000"
     env_file:
       - .env
     privileged: true

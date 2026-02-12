@@ -10,7 +10,7 @@ Die **DeviceBox** ist ein Raspberry Pi mit einem Docker-Container, der:
 - USB-Barcode-Scanner automatisch erkennt (Datalogic Touch 65 und andere HID-Geraete)
 - Die POS-API regelmaessig abfragt (Polling), um zu pruefen, ob ein Scan-Vorgang angefordert wird
 - Gescannte Barcodes in Echtzeit an die POS-API zuruecksendet
-- Ueber `devicebox.local:8000` im lokalen Netzwerk erreichbar ist
+- Ueber `devicebox.local` im lokalen Netzwerk erreichbar ist
 
 Die Kommunikation ist **unidirektional vom DeviceBox-Client zum POS-Server**: Die DeviceBox pollt die POS-API, nicht umgekehrt.
 
@@ -133,7 +133,7 @@ Die Kommunikation wird durch einen **Bearer Token** geschuetzt:
 
 1. Das POS-System generiert einen zufaelligen Token (z.B. `crypto.randomUUID()` oder ein JWT)
 2. Der Token wird in der POS-Datenbank gespeichert
-3. Der Benutzer kopiert den Token und traegt ihn in der DeviceBox-Web-GUI ein (`devicebox.local:8000/settings`)
+3. Der Benutzer kopiert den Token und traegt ihn in der DeviceBox-Web-GUI ein (`devicebox.local/settings`)
 4. Alle Requests der DeviceBox enthalten den Header: `Authorization: Bearer {token}`
 
 ### Token-Generierung (Beispiel)
@@ -254,7 +254,7 @@ async function handleBarcode(sessionId: string, barcode: string) {
 
 ## CORS-Konfiguration
 
-Die DeviceBox sendet Requests von einer anderen Origin (`devicebox.local:8000`). Das POS-System muss CORS korrekt konfigurieren.
+Die DeviceBox sendet Requests von einer anderen Origin (`devicebox.local`). Das POS-System muss CORS korrekt konfigurieren.
 
 **`next.config.js`:**
 
@@ -309,7 +309,7 @@ Das POS-System sollte:
 ## Test-Szenario
 
 1. POS-System starten, Token generieren
-2. Token in DeviceBox-GUI eingeben (`devicebox.local:8000/settings`)
+2. Token in DeviceBox-GUI eingeben (`devicebox.local/settings`)
 3. Im POS-System "Scan starten" klicken
 4. In der DeviceBox-GUI pruefen: POS-Status sollte "Session aktiv" anzeigen
 5. Barcode scannen

@@ -61,6 +61,9 @@ CONNECT_SETTLE_TIME = 2      # Sekunden Wartezeit nach HTTP-Antwort vor AP-Stopp
 DNSMASQ_CONF_DIR = Path("/etc/NetworkManager/dnsmasq-shared.d")
 DNSMASQ_CONF_FILE = DNSMASQ_CONF_DIR / "captive-portal.conf"
 
+# Docker-Compose Verzeichnis (Gateway-Container belegt Port 80)
+DOCKER_COMPOSE_DIR = Path("/opt/iot-gateway")
+
 # Pfade die Betriebssysteme fuer Captive-Portal-Erkennung pruefen
 CAPTIVE_CHECK_PATHS = {
     "/hotspot-detect.html",          # Apple iOS / macOS
@@ -322,12 +325,60 @@ class WifiManager:
         except Exception as exc:
             logger.error("DNS-Redirect-Config fehlgeschlagen: %s", exc)
 
+    # --- Docker Gateway Container (belegt Port 80) ---
+
+    def _stop_gateway_container(self) -> None:
+        """Stoppt den Docker Gateway Container um Port 80 freizugeben."""
+        compose_file = DOCKER_COMPOSE_DIR / "docker-compose.yml"
+        if not compose_file.exists():
+            return
+
+        try:
+            result = subprocess.run(
+                ["docker", "compose", "stop", "gateway"],
+                capture_output=True, text=True, timeout=30,
+                cwd=str(DOCKER_COMPOSE_DIR),
+            )
+            if result.returncode == 0:
+                logger.info("Docker Gateway Container gestoppt (Port 80 frei)")
+            else:
+                logger.warning("Gateway-Stop: %s", result.stderr.strip())
+        except Exception as exc:
+            logger.error("Gateway-Stop fehlgeschlagen: %s", exc)
+
+    def _start_gateway_container(self) -> None:
+        """Startet den Docker Gateway Container nach Portal-Stopp."""
+        compose_file = DOCKER_COMPOSE_DIR / "docker-compose.yml"
+        if not compose_file.exists():
+            return
+
+        try:
+            result = subprocess.run(
+                ["docker", "compose", "start", "gateway"],
+                capture_output=True, text=True, timeout=60,
+                cwd=str(DOCKER_COMPOSE_DIR),
+            )
+            if result.returncode == 0:
+                logger.info("Docker Gateway Container gestartet (Port 80 aktiv)")
+            else:
+                logger.warning("Gateway-Start: %s", result.stderr.strip())
+        except Exception as exc:
+            logger.error("Gateway-Start fehlgeschlagen: %s", exc)
+
     # --- Captive Portal HTTP Server ---
 
     def start_portal(self) -> None:
-        """Startet den HTTP-Server fuer das Captive-Portal."""
+        """Startet den HTTP-Server fuer das Captive-Portal.
+
+        Stoppt zuerst den Docker Gateway Container, da dieser ebenfalls
+        Port 80 belegt.
+        """
         if self._server is not None:
             return
+
+        # Gateway Container stoppen um Port 80 freizugeben
+        self._stop_gateway_container()
+        time.sleep(1)
 
         try:
             handler = _make_handler(self)
@@ -341,14 +392,19 @@ class WifiManager:
             logger.info("Captive-Portal gestartet auf Port %d", PORTAL_PORT)
         except OSError as exc:
             logger.error("Portal-Start fehlgeschlagen (Port %d belegt?): %s", PORTAL_PORT, exc)
+            # Port immer noch belegt → Gateway Container vielleicht wieder starten
+            self._start_gateway_container()
 
     def stop_portal(self) -> None:
-        """Stoppt den HTTP-Server."""
+        """Stoppt den HTTP-Server und startet den Gateway Container wieder."""
         if self._server:
             self._server.shutdown()
             self._server = None
             self._server_thread = None
             logger.info("Captive-Portal gestoppt")
+
+        # Gateway Container wieder starten
+        self._start_gateway_container()
 
     # --- Hauptschleife ---
 
