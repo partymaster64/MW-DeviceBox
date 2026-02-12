@@ -1,6 +1,7 @@
+import asyncio
 import logging
-from urllib.request import Request, urlopen
 from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -35,9 +36,8 @@ def _parse_prometheus_metric(text: str, metric_name: str) -> int | None:
     return None
 
 
-@router.get("/status", response_model=WatchtowerStatus)
-async def watchtower_status() -> WatchtowerStatus:
-    """Query the Watchtower HTTP API for status and metrics."""
+def _fetch_watchtower_metrics() -> WatchtowerStatus:
+    """Blocking call to query Watchtower HTTP API. Runs in a thread."""
     url = f"{settings.WATCHTOWER_URL}/v1/metrics"
     token = settings.WATCHTOWER_TOKEN
 
@@ -63,3 +63,9 @@ async def watchtower_status() -> WatchtowerStatus:
             running=False,
             interval=settings.WATCHTOWER_INTERVAL,
         )
+
+
+@router.get("/status", response_model=WatchtowerStatus)
+async def watchtower_status() -> WatchtowerStatus:
+    """Query the Watchtower HTTP API for status and metrics."""
+    return await asyncio.to_thread(_fetch_watchtower_metrics)
