@@ -353,11 +353,19 @@ setup_wifi_manager() {
     # dnsmasq fuer Captive-Portal DNS-Redirect sicherstellen
     if ! command -v dnsmasq &>/dev/null; then
         apt-get install -y dnsmasq >/dev/null 2>&1
-        # dnsmasq als eigenstaendiger Service deaktivieren (wird von NM gesteuert)
-        systemctl stop dnsmasq 2>/dev/null || true
-        systemctl disable dnsmasq 2>/dev/null || true
-        log_success "dnsmasq installiert (wird von NetworkManager verwaltet)"
+        log_success "dnsmasq installiert"
     fi
+
+    # dnsmasq als eigenstaendiger Service IMMER deaktivieren (wird von NM gesteuert)
+    # Verhindert Konflikte wenn dnsmasq bereits vorher installiert war
+    if systemctl is-active --quiet dnsmasq 2>/dev/null; then
+        systemctl stop dnsmasq 2>/dev/null || true
+        log_info "Eigenstaendigen dnsmasq-Service gestoppt"
+    fi
+    systemctl disable dnsmasq 2>/dev/null || true
+    # Maskieren verhindert versehentliches Starten durch andere Pakete
+    systemctl mask dnsmasq 2>/dev/null || true
+    log_success "dnsmasq als eigenstaendiger Service deaktiviert (wird von NetworkManager verwaltet)"
 
     # WLAN-Interface pruefen
     if ! nmcli -t -f TYPE dev 2>/dev/null | grep -q "wifi"; then
@@ -398,17 +406,22 @@ NMEOF
         log_success "NetworkManager DNS-Konfiguration erstellt"
     fi
 
-    # Systemd Service installieren
+    # Systemd Service installieren und starten
     if [[ -f "wifi-manager/devicebox-wifi.service" ]]; then
         cp wifi-manager/devicebox-wifi.service /etc/systemd/system/devicebox-wifi.service
         systemctl daemon-reload
         systemctl enable devicebox-wifi.service
         log_success "Systemd-Service 'devicebox-wifi' erstellt und aktiviert"
-    fi
 
-    # Service starten
-    systemctl start devicebox-wifi.service 2>/dev/null || true
-    log_success "WiFi Manager eingerichtet (AP-SSID: DeviceBox-Setup)"
+        # Service starten
+        if systemctl start devicebox-wifi.service 2>/dev/null; then
+            log_success "WiFi Manager gestartet (AP-SSID: DeviceBox-Setup)"
+        else
+            log_warn "WiFi Manager konnte nicht gestartet werden – Logs pruefen: journalctl -u devicebox-wifi"
+        fi
+    else
+        log_error "devicebox-wifi.service nicht gefunden – WiFi Manager Service nicht installiert"
+    fi
 }
 
 # --- Service starten ---

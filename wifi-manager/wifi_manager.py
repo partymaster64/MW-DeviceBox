@@ -561,12 +561,26 @@ def _make_handler(manager: WifiManager):
             path = urlparse(self.path).path
 
             if path == "/api/wifi/connect":
-                content_length = int(self.headers.get("Content-Length", 0))
-                body = self.rfile.read(content_length).decode("utf-8")
+                try:
+                    content_length = int(self.headers.get("Content-Length", 0))
+                except (ValueError, TypeError):
+                    self._json_response(
+                        {"success": False, "message": "Ungueltige Anfrage"}, 400,
+                    )
+                    return
+
+                try:
+                    raw = self.rfile.read(content_length)
+                    body = raw.decode("utf-8")
+                except (UnicodeDecodeError, OSError):
+                    self._json_response(
+                        {"success": False, "message": "Ungueltige Zeichenkodierung"}, 400,
+                    )
+                    return
 
                 try:
                     data = json.loads(body)
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, ValueError):
                     self._json_response(
                         {"success": False, "message": "Ungueltige Anfrage"}, 400,
                     )
