@@ -7,9 +7,9 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import device, health, info
+from app.api import devices, health, info
 from app.config import settings
-from app.devices.gpio_device import get_gpio_device
+from app.devices.barcode_scanner import create_scanner
 from app.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -23,19 +23,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Startup
     setup_logging(settings.LOG_LEVEL)
     logger.info(
-        "Starting %s v%s (GPIO_ENABLED=%s)",
+        "Starting %s v%s (SCANNER_ENABLED=%s)",
         settings.DEVICE_NAME,
         settings.APP_VERSION,
-        settings.GPIO_ENABLED,
+        settings.SCANNER_ENABLED,
     )
 
-    gpio_device = get_gpio_device(settings.GPIO_ENABLED)
-    device.set_gpio_device(gpio_device)
+    scanner = create_scanner(
+        enabled=settings.SCANNER_ENABLED,
+        device_path=settings.SCANNER_DEVICE,
+        name=settings.SCANNER_NAME,
+    )
+    scanner.start()
+    devices.set_scanner(scanner)
 
     yield
 
     # Shutdown
-    gpio_device.cleanup()
+    scanner.stop()
     logger.info("Shutdown complete")
 
 
@@ -47,7 +52,7 @@ app = FastAPI(
 
 app.include_router(health.router)
 app.include_router(info.router)
-app.include_router(device.router)
+app.include_router(devices.router)
 
 # Serve static files (CSS, JS)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

@@ -9,7 +9,7 @@ services:
       - .env
     privileged: true
     volumes:
-      - /dev/gpiomem:/dev/gpiomem
+      - /dev:/dev
 
   watchtower:
     image: containrrr/watchtower

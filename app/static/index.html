@@ -28,7 +28,7 @@
             <!-- Status Cards -->
             <section class="cards">
                 <div class="card" id="healthCard">
-                    <div class="card-icon">
+                    <div class="card-icon card-icon-green">
                         <i class="lucide lucide-heart-pulse"></i>
                     </div>
                     <div class="card-body">
@@ -38,7 +38,7 @@
                 </div>
 
                 <div class="card" id="deviceCard">
-                    <div class="card-icon">
+                    <div class="card-icon card-icon-blue">
                         <i class="lucide lucide-cpu"></i>
                     </div>
                     <div class="card-body">
@@ -48,7 +48,7 @@
                 </div>
 
                 <div class="card" id="versionCard">
-                    <div class="card-icon">
+                    <div class="card-icon card-icon-yellow">
                         <i class="lucide lucide-tag"></i>
                     </div>
                     <div class="card-body">
@@ -58,67 +58,43 @@
                 </div>
             </section>
 
-            <!-- GPIO Section -->
-            <section class="gpio-section">
+            <!-- Devices Section -->
+            <section class="devices-section">
                 <div class="section-header">
-                    <i class="lucide lucide-circuit-board"></i>
-                    <h2>GPIO Steuerung</h2>
+                    <i class="lucide lucide-plug"></i>
+                    <h2>Erkannte Geraete</h2>
+                    <button class="btn-icon" onclick="fetchDevices()" title="Aktualisieren">
+                        <i class="lucide lucide-refresh-cw"></i>
+                    </button>
                 </div>
+                <div class="devices-list" id="devicesList">
+                    <div class="device-empty">Lade Geraete...</div>
+                </div>
+            </section>
 
-                <!-- GPIO Read -->
-                <div class="gpio-panel">
-                    <div class="panel-header">
-                        <i class="lucide lucide-scan-search"></i>
-                        <h3>Pin lesen</h3>
-                    </div>
-                    <div class="panel-body">
-                        <div class="input-group">
-                            <label for="readPin">GPIO Pin (BCM)</label>
-                            <input type="number" id="readPin" min="0" max="27" value="17" placeholder="Pin Nr.">
-                        </div>
-                        <button class="btn btn-primary" id="readBtn" onclick="readGPIO()">
-                            <i class="lucide lucide-download"></i>
-                            <span>Lesen</span>
-                        </button>
-                        <div class="result" id="readResult" style="display:none;">
-                            <div class="result-label">Wert:</div>
-                            <div class="result-value" id="readValue">--</div>
-                        </div>
+            <!-- Last Barcode Section -->
+            <section class="barcode-section">
+                <div class="section-header">
+                    <i class="lucide lucide-scan-barcode"></i>
+                    <h2>Letzter Barcode</h2>
+                </div>
+                <div class="barcode-display" id="barcodeDisplay">
+                    <div class="barcode-empty">
+                        <i class="lucide lucide-scan-line"></i>
+                        <p>Warte auf Scan...</p>
                     </div>
                 </div>
+            </section>
 
-                <!-- GPIO Write -->
-                <div class="gpio-panel">
-                    <div class="panel-header">
-                        <i class="lucide lucide-pen-line"></i>
-                        <h3>Pin schreiben</h3>
-                    </div>
-                    <div class="panel-body">
-                        <div class="input-row">
-                            <div class="input-group">
-                                <label for="writePin">GPIO Pin (BCM)</label>
-                                <input type="number" id="writePin" min="0" max="27" value="17" placeholder="Pin Nr.">
-                            </div>
-                            <div class="input-group">
-                                <label>Wert</label>
-                                <div class="toggle-group">
-                                    <button class="toggle-btn active" id="valLow" onclick="setWriteValue(0)">
-                                        <i class="lucide lucide-zap-off"></i> LOW
-                                    </button>
-                                    <button class="toggle-btn" id="valHigh" onclick="setWriteValue(1)">
-                                        <i class="lucide lucide-zap"></i> HIGH
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <button class="btn btn-accent" id="writeBtn" onclick="writeGPIO()">
-                            <i class="lucide lucide-upload"></i>
-                            <span>Schreiben</span>
-                        </button>
-                        <div class="result" id="writeResult" style="display:none;">
-                            <div class="result-value" id="writeStatus">--</div>
-                        </div>
-                    </div>
+            <!-- Scan History Section -->
+            <section class="history-section">
+                <div class="section-header">
+                    <i class="lucide lucide-history"></i>
+                    <h2>Scan-Verlauf</h2>
+                    <span class="badge" id="historyCount">0</span>
+                </div>
+                <div class="history-list" id="historyList">
+                    <div class="history-empty">Noch keine Scans</div>
                 </div>
             </section>
 

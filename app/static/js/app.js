@@ -3,16 +3,30 @@
 // =============================================================================
 
 const API_BASE = window.location.origin;
-let writeValue = 0;
+let lastKnownBarcode = null;
 let pollInterval = null;
+let scanPollInterval = null;
 
 // --- Initialization ---
 
 document.addEventListener('DOMContentLoaded', () => {
     fetchHealth();
     fetchInfo();
+    fetchDevices();
+    fetchLastScan();
+    fetchHistory();
+
     // Poll health every 10 seconds
-    pollInterval = setInterval(fetchHealth, 10000);
+    pollInterval = setInterval(() => {
+        fetchHealth();
+        fetchDevices();
+    }, 10000);
+
+    // Poll scanner every 2 seconds for near-realtime barcode updates
+    scanPollInterval = setInterval(() => {
+        fetchLastScan();
+        fetchHistory();
+    }, 2000);
 });
 
 // --- API Calls ---
@@ -22,20 +36,17 @@ async function fetchHealth() {
         const res = await fetch(`${API_BASE}/health`);
         const data = await res.json();
         const el = document.getElementById('healthStatus');
-        const card = document.getElementById('healthCard');
-        const status = document.getElementById('connectionStatus');
 
         if (data.status === 'ok') {
             el.textContent = 'Online';
             el.style.color = 'var(--green)';
-            status.className = 'header-status online';
-            status.innerHTML = '<i class="lucide lucide-wifi"></i><span>Verbunden</span>';
+            setOnline();
         } else {
             el.textContent = 'Fehler';
             el.style.color = 'var(--red)';
             setOffline();
         }
-    } catch (err) {
+    } catch {
         document.getElementById('healthStatus').textContent = 'Offline';
         document.getElementById('healthStatus').style.color = 'var(--red)';
         setOffline();
@@ -57,100 +68,176 @@ async function fetchInfo() {
     }
 }
 
-async function readGPIO() {
-    const pin = parseInt(document.getElementById('readPin').value);
-    if (isNaN(pin) || pin < 0) {
-        addLog('warn', 'Ungueltiger Pin');
-        return;
-    }
-
-    const btn = document.getElementById('readBtn');
-    btn.disabled = true;
-
+async function fetchDevices() {
     try {
-        const res = await fetch(`${API_BASE}/device/gpio/read`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pin }),
-        });
-
+        const res = await fetch(`${API_BASE}/devices`);
         const data = await res.json();
-
-        if (res.ok) {
-            const resultEl = document.getElementById('readResult');
-            const valueEl = document.getElementById('readValue');
-            resultEl.style.display = 'flex';
-            valueEl.textContent = data.value === 1 ? 'HIGH (1)' : 'LOW (0)';
-            valueEl.className = `result-value ${data.value === 1 ? 'high' : 'low'}`;
-            addLog('success', `Pin ${pin} gelesen: ${data.value === 1 ? 'HIGH' : 'LOW'}`);
-        } else {
-            addLog('error', `Fehler beim Lesen von Pin ${pin}: ${data.detail}`);
-        }
-    } catch (err) {
-        addLog('error', `Netzwerkfehler: ${err.message}`);
-    } finally {
-        btn.disabled = false;
+        renderDevices(data.devices);
+    } catch {
+        document.getElementById('devicesList').innerHTML =
+            '<div class="device-empty">Geraete konnten nicht geladen werden</div>';
     }
 }
 
-async function writeGPIO() {
-    const pin = parseInt(document.getElementById('writePin').value);
-    if (isNaN(pin) || pin < 0) {
-        addLog('warn', 'Ungueltiger Pin');
+async function fetchLastScan() {
+    try {
+        const res = await fetch(`${API_BASE}/devices/scanner/last-scan`);
+        const data = await res.json();
+        renderLastScan(data.scan);
+    } catch {
+        // Silently ignore polling errors
+    }
+}
+
+async function fetchHistory() {
+    try {
+        const res = await fetch(`${API_BASE}/devices/scanner/history`);
+        const data = await res.json();
+        renderHistory(data.scans, data.total);
+    } catch {
+        // Silently ignore polling errors
+    }
+}
+
+// --- Render Functions ---
+
+function renderDevices(devices) {
+    const container = document.getElementById('devicesList');
+
+    if (!devices || devices.length === 0) {
+        container.innerHTML = '<div class="device-empty">Keine Geraete erkannt</div>';
         return;
     }
 
-    const btn = document.getElementById('writeBtn');
-    btn.disabled = true;
+    container.innerHTML = devices.map(device => {
+        const isConnected = device.connected;
+        const typeLabel = getDeviceTypeLabel(device.type);
+        const typeIcon = getDeviceTypeIcon(device.type);
 
-    try {
-        const res = await fetch(`${API_BASE}/device/gpio/write`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pin, value: writeValue }),
-        });
+        return `
+            <div class="device-card">
+                <div class="device-card-icon ${isConnected ? 'connected' : ''}">
+                    <i class="lucide ${typeIcon}"></i>
+                </div>
+                <div class="device-card-body">
+                    <div class="device-card-name">${escapeHtml(device.name)}</div>
+                    <div class="device-card-meta">${typeLabel} &middot; ${escapeHtml(device.device_path)}</div>
+                </div>
+                <div class="device-card-status ${isConnected ? 'connected' : 'disconnected'}">
+                    <i class="lucide ${isConnected ? 'lucide-circle-check' : 'lucide-circle-x'}"></i>
+                    ${isConnected ? 'Verbunden' : 'Getrennt'}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
 
-        const data = await res.json();
+function renderLastScan(scan) {
+    const container = document.getElementById('barcodeDisplay');
 
-        if (res.ok) {
-            const resultEl = document.getElementById('writeResult');
-            const statusEl = document.getElementById('writeStatus');
-            resultEl.style.display = 'flex';
-            statusEl.textContent = 'Erfolgreich';
-            statusEl.className = 'result-value success';
-            addLog('success', `Pin ${pin} auf ${writeValue === 1 ? 'HIGH' : 'LOW'} gesetzt`);
-
-            // Auto-hide result after 3s
-            setTimeout(() => {
-                resultEl.style.display = 'none';
-            }, 3000);
-        } else {
-            const resultEl = document.getElementById('writeResult');
-            const statusEl = document.getElementById('writeStatus');
-            resultEl.style.display = 'flex';
-            statusEl.textContent = 'Fehler';
-            statusEl.className = 'result-value error';
-            addLog('error', `Fehler beim Schreiben auf Pin ${pin}: ${data.detail}`);
-        }
-    } catch (err) {
-        addLog('error', `Netzwerkfehler: ${err.message}`);
-    } finally {
-        btn.disabled = false;
+    if (!scan) {
+        container.innerHTML = `
+            <div class="barcode-empty">
+                <i class="lucide lucide-scan-line"></i>
+                <p>Warte auf Scan...</p>
+            </div>
+        `;
+        return;
     }
+
+    // Detect new barcode and log it
+    if (scan.barcode !== lastKnownBarcode) {
+        if (lastKnownBarcode !== null) {
+            addLog('success', `Neuer Barcode gescannt: ${scan.barcode}`);
+        }
+        lastKnownBarcode = scan.barcode;
+    }
+
+    const time = formatTimestamp(scan.timestamp);
+
+    container.innerHTML = `
+        <div class="barcode-value">${escapeHtml(scan.barcode)}</div>
+        <div class="barcode-meta">
+            <i class="lucide lucide-clock"></i>
+            <span>${time}</span>
+            <span>&middot;</span>
+            <i class="lucide lucide-scan-barcode"></i>
+            <span>${escapeHtml(scan.device)}</span>
+        </div>
+    `;
+}
+
+function renderHistory(scans, total) {
+    const container = document.getElementById('historyList');
+    const countEl = document.getElementById('historyCount');
+
+    countEl.textContent = total;
+
+    if (!scans || scans.length === 0) {
+        container.innerHTML = '<div class="history-empty">Noch keine Scans</div>';
+        return;
+    }
+
+    container.innerHTML = scans.map(scan => {
+        const time = formatTimestamp(scan.timestamp);
+        return `
+            <div class="history-entry">
+                <i class="lucide lucide-scan-barcode history-entry-icon"></i>
+                <span class="history-entry-barcode">${escapeHtml(scan.barcode)}</span>
+                <span class="history-entry-time">${time}</span>
+            </div>
+        `;
+    }).join('');
 }
 
 // --- UI Helpers ---
 
-function setWriteValue(val) {
-    writeValue = val;
-    document.getElementById('valLow').className = `toggle-btn ${val === 0 ? 'active' : ''}`;
-    document.getElementById('valHigh').className = `toggle-btn ${val === 1 ? 'active' : ''}`;
+function setOnline() {
+    const status = document.getElementById('connectionStatus');
+    status.className = 'header-status online';
+    status.innerHTML = '<i class="lucide lucide-wifi"></i><span>Verbunden</span>';
 }
 
 function setOffline() {
     const status = document.getElementById('connectionStatus');
     status.className = 'header-status offline';
     status.innerHTML = '<i class="lucide lucide-wifi-off"></i><span>Getrennt</span>';
+}
+
+function getDeviceTypeLabel(type) {
+    const labels = {
+        'barcode_scanner': 'Barcode Scanner',
+    };
+    return labels[type] || type;
+}
+
+function getDeviceTypeIcon(type) {
+    const icons = {
+        'barcode_scanner': 'lucide-scan-barcode',
+    };
+    return icons[type] || 'lucide-box';
+}
+
+function formatTimestamp(isoString) {
+    try {
+        const date = new Date(isoString);
+        return date.toLocaleString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
+    } catch {
+        return isoString;
+    }
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
 
 // --- Log ---
@@ -161,11 +248,15 @@ function addLog(type, message) {
     if (empty) empty.remove();
 
     const now = new Date();
-    const time = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const time = now.toLocaleTimeString('de-DE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    });
 
     const entry = document.createElement('div');
     entry.className = 'log-entry';
-    entry.innerHTML = `<span class="log-time">${time}</span><span class="log-msg ${type}">${message}</span>`;
+    entry.innerHTML = `<span class="log-time">${time}</span><span class="log-msg ${type}">${escapeHtml(message)}</span>`;
 
     container.appendChild(entry);
     container.scrollTop = container.scrollHeight;

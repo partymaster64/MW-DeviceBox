@@ -194,7 +194,9 @@ setup_install_dir() {
             cat > "$INSTALL_DIR/.env" <<'ENVEOF'
 DEVICE_NAME=iot-gateway
 APP_VERSION=1.0.0
-GPIO_ENABLED=true
+SCANNER_ENABLED=true
+SCANNER_DEVICE=/dev/hidraw0
+SCANNER_NAME=Datalogic Touch 65
 LOG_LEVEL=INFO
 ENVEOF
             log_info "Standard .env erstellt"
@@ -310,30 +312,24 @@ SERVICEEOF
     log_success "Systemd-Service 'iot-gateway' erstellt und aktiviert"
 }
 
-# --- GPIO Zugriff einrichten ---
+# --- USB HID Zugriff einrichten (Barcode Scanner) ---
 
-setup_gpio() {
-    log_info "GPIO-Zugriff wird konfiguriert..."
+setup_hid_access() {
+    log_info "USB HID-Zugriff wird konfiguriert (Barcode Scanner)..."
 
-    # gpio Gruppe erstellen falls noetig
-    if ! getent group gpio &>/dev/null; then
-        groupadd gpio
-    fi
-
-    # udev-Regel fuer GPIO Zugriff
-    if [[ ! -f /etc/udev/rules.d/99-gpio.rules ]]; then
-        cat > /etc/udev/rules.d/99-gpio.rules <<'GPIOEOF'
-SUBSYSTEM=="gpio", KERNEL=="gpiochip*", ACTION=="add", PROGRAM="/bin/sh -c 'chown root:gpio /sys/class/gpio/export /sys/class/gpio/unexport ; chmod 220 /sys/class/gpio/export /sys/class/gpio/unexport'"
-SUBSYSTEM=="gpio", KERNEL=="gpio*", ACTION=="add", PROGRAM="/bin/sh -c 'chown root:gpio /sys%p/active_low /sys%p/direction /sys%p/edge /sys%p/value ; chmod 660 /sys%p/active_low /sys%p/direction /sys%p/edge /sys%p/value'"
-GPIOEOF
+    # udev-Regel fuer HID-Device Zugriff (z.B. /dev/hidraw0)
+    if [[ ! -f /etc/udev/rules.d/99-hidraw.rules ]]; then
+        cat > /etc/udev/rules.d/99-hidraw.rules <<'HIDEOF'
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0666"
+HIDEOF
         udevadm control --reload-rules
         udevadm trigger
-        log_success "GPIO udev-Regeln erstellt"
+        log_success "HID udev-Regeln erstellt (/dev/hidraw* fuer alle lesbar)"
     else
-        log_success "GPIO udev-Regeln existieren bereits"
+        log_success "HID udev-Regeln existieren bereits"
     fi
 
-    log_success "GPIO-Zugriff konfiguriert"
+    log_success "USB HID-Zugriff konfiguriert"
 }
 
 # --- Service starten ---
@@ -405,7 +401,7 @@ main() {
     install_docker
     enable_docker_service
     create_service_user
-    setup_gpio
+    setup_hid_access
     setup_install_dir
     setup_ghcr_auth
     create_systemd_service
