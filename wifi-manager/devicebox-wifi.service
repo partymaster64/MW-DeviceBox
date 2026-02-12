@@ -1,0 +1,26 @@
+[Unit]
+Description=DeviceBox WiFi Manager (Captive Portal)
+Documentation=https://github.com/partymaster64/MW-DeviceBox
+# Starten NACH NetworkManager, BEVOR Docker (damit WLAN steht)
+After=NetworkManager.service
+Before=docker.service
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/devicebox-wifi/wifi_manager.py
+Restart=on-failure
+RestartSec=10
+# Standard I/O ins Journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=devicebox-wifi
+# Netzwerk-Steuerung braucht root
+User=root
+# Sauberes Herunterfahren
+TimeoutStopSec=15
+KillMode=mixed
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target

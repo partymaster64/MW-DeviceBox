@@ -21,6 +21,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 INSTALL_DIR="/opt/iot-gateway"
+WIFI_INSTALL_DIR="/opt/devicebox-wifi"
 SERVICE_USER="iot-gateway"
 COMPOSE_FILE="docker-compose.yml"
 ENV_FILE=".env"
@@ -333,6 +334,83 @@ HIDEOF
     log_success "USB HID-Zugriff konfiguriert"
 }
 
+# --- WiFi Manager (Captive Portal) einrichten ---
+
+setup_wifi_manager() {
+    log_info "WiFi Manager (Captive Portal) wird eingerichtet..."
+
+    # NetworkManager sicherstellen
+    if ! command -v nmcli &>/dev/null; then
+        log_info "NetworkManager wird installiert..."
+        apt-get install -y network-manager >/dev/null 2>&1
+        systemctl enable NetworkManager
+        systemctl start NetworkManager
+        log_success "NetworkManager installiert und aktiviert"
+    else
+        log_success "NetworkManager ist bereits installiert"
+    fi
+
+    # dnsmasq fuer Captive-Portal DNS-Redirect sicherstellen
+    if ! command -v dnsmasq &>/dev/null; then
+        apt-get install -y dnsmasq >/dev/null 2>&1
+        # dnsmasq als eigenstaendiger Service deaktivieren (wird von NM gesteuert)
+        systemctl stop dnsmasq 2>/dev/null || true
+        systemctl disable dnsmasq 2>/dev/null || true
+        log_success "dnsmasq installiert (wird von NetworkManager verwaltet)"
+    fi
+
+    # WLAN-Interface pruefen
+    if ! nmcli -t -f TYPE dev 2>/dev/null | grep -q "wifi"; then
+        log_warn "Kein WLAN-Interface gefunden – WiFi Manager wird trotzdem installiert"
+        log_warn "Er startet automatisch sobald ein WLAN-Adapter angeschlossen ist"
+    fi
+
+    # Installationsverzeichnis erstellen
+    mkdir -p "$WIFI_INSTALL_DIR/portal"
+
+    # WiFi Manager Dateien kopieren
+    if [[ -d "wifi-manager" ]]; then
+        cp wifi-manager/wifi_manager.py "$WIFI_INSTALL_DIR/wifi_manager.py"
+        cp wifi-manager/portal/index.html "$WIFI_INSTALL_DIR/portal/index.html"
+        cp wifi-manager/portal/style.css "$WIFI_INSTALL_DIR/portal/style.css"
+        cp wifi-manager/portal/app.js "$WIFI_INSTALL_DIR/portal/app.js"
+        chmod +x "$WIFI_INSTALL_DIR/wifi_manager.py"
+        log_success "WiFi Manager Dateien kopiert nach $WIFI_INSTALL_DIR"
+    else
+        log_error "wifi-manager/ Verzeichnis nicht gefunden im aktuellen Verzeichnis"
+        log_warn "WiFi Manager wird uebersprungen"
+        return
+    fi
+
+    # dnsmasq-shared Verzeichnis vorbereiten
+    mkdir -p /etc/NetworkManager/dnsmasq-shared.d
+
+    # NetworkManager dnsmasq-Konfiguration fuer shared-Modus aktivieren
+    local nm_conf="/etc/NetworkManager/conf.d/devicebox-dns.conf"
+    if [[ ! -f "$nm_conf" ]]; then
+        mkdir -p /etc/NetworkManager/conf.d
+        cat > "$nm_conf" <<'NMEOF'
+[main]
+dns=dnsmasq
+NMEOF
+        # NetworkManager neu laden damit dnsmasq-Konfiguration aktiv wird
+        systemctl reload NetworkManager 2>/dev/null || systemctl restart NetworkManager
+        log_success "NetworkManager DNS-Konfiguration erstellt"
+    fi
+
+    # Systemd Service installieren
+    if [[ -f "wifi-manager/devicebox-wifi.service" ]]; then
+        cp wifi-manager/devicebox-wifi.service /etc/systemd/system/devicebox-wifi.service
+        systemctl daemon-reload
+        systemctl enable devicebox-wifi.service
+        log_success "Systemd-Service 'devicebox-wifi' erstellt und aktiviert"
+    fi
+
+    # Service starten
+    systemctl start devicebox-wifi.service 2>/dev/null || true
+    log_success "WiFi Manager eingerichtet (AP-SSID: DeviceBox-Setup)"
+}
+
 # --- Service starten ---
 
 start_services() {
@@ -361,6 +439,11 @@ show_status() {
     echo -e "  Konfiguration:           ${BLUE}$INSTALL_DIR/.env${NC}"
     echo -e "  Web Dashboard:           ${BLUE}http://devicebox.local:8000${NC}"
     echo -e "  API Adresse:             ${BLUE}http://$(hostname -I | awk '{print $1}'):8000${NC}"
+    echo ""
+    echo -e "  ${YELLOW}WiFi Manager:${NC}"
+    echo "    Falls kein WLAN: Access-Point 'DeviceBox-Setup' wird gestartet"
+    echo "    Handy verbinden → WLAN-Einrichtung oeffnet sich automatisch"
+    echo "    Service: sudo systemctl status devicebox-wifi"
     echo ""
     echo -e "  ${YELLOW}Nuetzliche Befehle:${NC}"
     echo "    sudo systemctl status iot-gateway    # Service-Status"
@@ -406,6 +489,7 @@ main() {
     setup_install_dir
     setup_ghcr_auth
     create_systemd_service
+    setup_wifi_manager
     start_services
     show_status
 }

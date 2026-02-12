@@ -1,0 +1,525 @@
+/* ============================================= */
+/* DeviceBox – Captive Portal                    */
+/* Mobile-first, kein CDN, nur lokale Ressourcen */
+/* ============================================= */
+
+:root {
+    --bg: #0f1117;
+    --bg-card: #1e2233;
+    --bg-input: #262a3a;
+    --border: #2d3348;
+    --text: #e8eaed;
+    --text-dim: #9aa0b0;
+    --text-muted: #636981;
+    --accent: #6c63ff;
+    --accent-hover: #5a52e0;
+    --green: #34d399;
+    --green-bg: rgba(52, 211, 153, 0.1);
+    --green-border: rgba(52, 211, 153, 0.25);
+    --red: #f87171;
+    --red-bg: rgba(248, 113, 113, 0.1);
+    --red-border: rgba(248, 113, 113, 0.25);
+    --yellow: #fbbf24;
+    --yellow-bg: rgba(251, 191, 36, 0.1);
+    --yellow-border: rgba(251, 191, 36, 0.25);
+    --radius: 14px;
+    --radius-sm: 10px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+    font-size: 16px;
+    overflow-x: hidden;
+}
+
+.app {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Header --- */
+
+.header {
+    text-align: center;
+    padding: 2rem 0 1.5rem;
+}
+
+.header-icon {
+    width: 48px;
+    height: 48px;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+}
+
+.header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.header-sub {
+    font-size: 1rem;
+    color: var(--text-dim);
+    margin-top: 0.15rem;
+    display: block;
+}
+
+/* --- Banner (Error / Success) --- */
+
+.banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.9rem 1.1rem;
+    border-radius: var(--radius);
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.banner.banner-error {
+    background: var(--red-bg);
+    border: 1px solid var(--red-border);
+    color: var(--red);
+}
+
+.banner.banner-success {
+    background: var(--green-bg);
+    border: 1px solid var(--green-border);
+    color: var(--green);
+}
+
+.banner.banner-info {
+    background: var(--yellow-bg);
+    border: 1px solid var(--yellow-border);
+    color: var(--yellow);
+}
+
+.banner-icon {
+    flex-shrink: 0;
+    font-size: 1.3rem;
+}
+
+/* --- Sections --- */
+
+.section {
+    margin-bottom: 1rem;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.section-header h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.btn-scan {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-scan:hover, .btn-scan:active {
+    color: var(--text);
+    border-color: var(--accent);
+}
+
+.btn-scan svg {
+    width: 20px;
+    height: 20px;
+}
+
+.btn-scan.scanning svg {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* --- Network List --- */
+
+.network-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+}
+
+.network-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.1rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid rgba(45, 51, 72, 0.5);
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.network-item:last-child {
+    border-bottom: none;
+}
+
+.network-item:hover, .network-item:active {
+    background: rgba(108, 99, 255, 0.06);
+}
+
+.network-item.selected {
+    background: rgba(108, 99, 255, 0.1);
+    border-left: 3px solid var(--accent);
+}
+
+/* Signal Bars */
+
+.signal-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 18px;
+    flex-shrink: 0;
+    width: 20px;
+}
+
+.signal-bar {
+    width: 4px;
+    border-radius: 1.5px;
+    background: rgba(100, 116, 139, 0.3);
+    transition: background 0.2s;
+}
+
+.signal-bar.active {
+    background: var(--green);
+}
+
+.signal-bar:nth-child(1) { height: 4px; }
+.signal-bar:nth-child(2) { height: 8px; }
+.signal-bar:nth-child(3) { height: 13px; }
+.signal-bar:nth-child(4) { height: 18px; }
+
+/* Network name + security */
+
+.network-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.network-name {
+    font-size: 1rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.network-security {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* Lock icon for secured networks */
+
+.network-lock {
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+.network-lock svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Empty / Loading state */
+
+.network-empty {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    font-size: 0.95rem;
+}
+
+/* --- Connect Card --- */
+
+.connect-card {
+    background: var(--bg-card);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+}
+
+.connect-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.connect-label {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+}
+
+.connect-ssid {
+    font-size: 1.05rem;
+    color: var(--accent);
+}
+
+/* --- Form Elements --- */
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 0.4rem;
+}
+
+.input-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.input-row input {
+    flex: 1;
+}
+
+input[type="text"],
+input[type="password"] {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 1rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.2);
+}
+
+input::placeholder {
+    color: var(--text-muted);
+}
+
+.btn-toggle {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    width: 48px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.btn-toggle:hover {
+    color: var(--text);
+    border-color: var(--accent);
+}
+
+.btn-toggle svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* --- Buttons --- */
+
+.btn-connect {
+    width: 100%;
+    padding: 0.9rem;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 1.05rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+    margin-top: 0.5rem;
+}
+
+.btn-connect:hover, .btn-connect:active {
+    background: var(--accent-hover);
+    box-shadow: 0 4px 16px rgba(108, 99, 255, 0.35);
+}
+
+.btn-connect:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Manual SSID Toggle */
+
+.btn-manual-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 0.5rem 0;
+    transition: color 0.2s;
+    width: 100%;
+}
+
+.btn-manual-toggle:hover {
+    color: var(--text-dim);
+}
+
+.btn-manual-toggle svg {
+    width: 18px;
+    height: 18px;
+    transition: transform 0.2s;
+}
+
+.btn-manual-toggle.open svg {
+    transform: rotate(180deg);
+}
+
+.manual-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-top: 0.5rem;
+}
+
+/* --- Connecting Overlay --- */
+
+.connecting-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 17, 23, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1.5rem;
+}
+
+.connecting-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2.5rem 2rem;
+    text-align: center;
+    max-width: 380px;
+    width: 100%;
+}
+
+.connecting-card h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 1.5rem 0 0.75rem;
+}
+
+.connecting-card p {
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-bottom: 0.5rem;
+}
+
+.connecting-hint {
+    font-size: 0.85rem !important;
+    color: var(--text-muted) !important;
+    margin-top: 1.25rem !important;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+.connecting-hint strong {
+    color: var(--accent);
+}
+
+/* --- Spinner --- */
+
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto;
+}
+
+.spinner-small {
+    width: 20px;
+    height: 20px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+/* --- Footer --- */
+
+.footer {
+    margin-top: auto;
+    padding: 1.5rem 0;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* --- Utility --- */
+
+.hidden {
+    display: none !important;
+}

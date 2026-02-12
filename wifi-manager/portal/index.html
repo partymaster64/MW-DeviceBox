@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>DeviceBox - WLAN Einrichtung</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 13a10 10 0 0 1 14 0"/>
+                <path d="M8.5 16.5a5 5 0 0 1 7 0"/>
+                <circle cx="12" cy="20" r="1"/>
+            </svg>
+            <h1>DeviceBox</h1>
+            <span class="header-sub">WLAN Einrichtung</span>
+        </header>
+
+        <!-- Status / Error Banner -->
+        <div class="banner" id="banner" style="display: none;">
+            <div class="banner-icon" id="bannerIcon"></div>
+            <div class="banner-text" id="bannerText"></div>
+        </div>
+
+        <!-- Connecting Overlay -->
+        <div class="connecting-overlay" id="connectingOverlay" style="display: none;">
+            <div class="connecting-card">
+                <div class="spinner"></div>
+                <h2>Verbindung wird hergestellt...</h2>
+                <p>Die DeviceBox verbindet sich jetzt mit dem WLAN.<br>
+                   Dieses Netzwerk wird gleich getrennt.</p>
+                <p class="connecting-hint">Wenn die Verbindung gelingt, finden Sie die DeviceBox
+                   unter <strong>devicebox.local</strong> im gleichen WLAN.</p>
+            </div>
+        </div>
+
+        <!-- Networks List -->
+        <section class="section">
+            <div class="section-header">
+                <h2>Verfuegbare Netzwerke</h2>
+                <button class="btn-scan" onclick="scanNetworks()" id="btnScan" title="Netzwerke suchen">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                        <path d="M21 3v5h-5"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="network-list" id="networkList">
+                <div class="network-empty">
+                    <div class="spinner-small"></div>
+                    <span>Netzwerke werden gesucht...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Password + Connect -->
+        <section class="section" id="connectSection" style="display: none;">
+            <div class="connect-card">
+                <div class="connect-header">
+                    <span class="connect-label">Verbinden mit:</span>
+                    <strong class="connect-ssid" id="selectedSsid"></strong>
+                </div>
+                <div class="form-group" id="passwordGroup" style="display: none;">
+                    <label for="wifiPassword">Passwort</label>
+                    <div class="input-row">
+                        <input
+                            type="password"
+                            id="wifiPassword"
+                            placeholder="WLAN-Passwort eingeben"
+                            autocomplete="off"
+                            autofocus
+                        >
+                        <button class="btn-toggle" onclick="togglePassword()" title="Passwort anzeigen">
+                            <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <button class="btn-connect" onclick="connectToNetwork()" id="btnConnect">
+                    Verbinden
+                </button>
+            </div>
+        </section>
+
+        <!-- Manual SSID -->
+        <section class="section">
+            <button class="btn-manual-toggle" onclick="toggleManual()" id="btnManualToggle">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m6 9 6 6 6-6"/>
+                </svg>
+                <span>Netzwerk manuell eingeben</span>
+            </button>
+            <div class="manual-section" id="manualSection" style="display: none;">
+                <div class="form-group">
+                    <label for="manualSsid">Netzwerkname (SSID)</label>
+                    <input type="text" id="manualSsid" placeholder="Netzwerkname eingeben">
+                </div>
+                <div class="form-group">
+                    <label for="manualPassword">Passwort</label>
+                    <input type="password" id="manualPassword" placeholder="Passwort eingeben">
+                </div>
+                <button class="btn-connect" onclick="connectManual()">
+                    Verbinden
+                </button>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            DeviceBox IoT Gateway
+        </footer>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>
