@@ -1,4 +1,4 @@
-"""Settings API endpoints for managing POS connection and USB power configuration."""
+"""Settings API endpoints for managing POS connection configuration."""
 
 import asyncio
 import logging
@@ -6,7 +6,6 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.devices.usb_power import UsbPowerController
 from app.services.pos_polling import PosPollingService
 from app.services.settings_store import SettingsStore
 
@@ -17,19 +16,16 @@ router = APIRouter(prefix="/settings")
 # Set during application startup
 _settings_store: SettingsStore | None = None
 _pos_service: PosPollingService | None = None
-_usb_power: UsbPowerController | None = None
 
 
 def set_dependencies(
     settings_store: SettingsStore,
     pos_service: PosPollingService,
-    usb_power: UsbPowerController | None = None,
 ) -> None:
     """Inject dependencies from the application lifespan."""
-    global _settings_store, _pos_service, _usb_power  # noqa: PLW0603
+    global _settings_store, _pos_service  # noqa: PLW0603
     _settings_store = settings_store
     _pos_service = pos_service
-    _usb_power = usb_power
 
 
 def _get_store() -> SettingsStore:
@@ -134,50 +130,4 @@ async def get_pos_status() -> PosStatusResponse:
         detail=service.status_detail,
         session_id=service.current_session_id,
         scanner_connected=scanner.is_connected,
-    )
-
-
-# --- USB Power models ---
-
-
-class UsbPowerSettingsResponse(BaseModel):
-    method: str  # "bind_unbind", "uhubctl", "none"
-    uhubctl_available: bool
-
-
-class UsbPowerSettingsUpdate(BaseModel):
-    method: str
-
-
-# --- USB Power endpoints ---
-
-
-@router.get("/usb-power", response_model=UsbPowerSettingsResponse)
-async def get_usb_power_settings() -> UsbPowerSettingsResponse:
-    """Get current USB power control settings."""
-    store = _get_store()
-    usb = store.usb_power
-    uhubctl_available = _usb_power.is_uhubctl_available() if _usb_power else False
-    return UsbPowerSettingsResponse(
-        method=usb.method,
-        uhubctl_available=uhubctl_available,
-    )
-
-
-@router.put("/usb-power", response_model=UsbPowerSettingsResponse)
-async def update_usb_power_settings(body: UsbPowerSettingsUpdate) -> UsbPowerSettingsResponse:
-    """Update USB power control settings."""
-    store = _get_store()
-    updated = store.update_usb_power(method=body.method)
-
-    # Update the live controller
-    if _usb_power:
-        _usb_power.method = updated.method
-
-    logger.info("USB power settings updated: method=%s", updated.method)
-
-    uhubctl_available = _usb_power.is_uhubctl_available() if _usb_power else False
-    return UsbPowerSettingsResponse(
-        method=updated.method,
-        uhubctl_available=uhubctl_available,
     )

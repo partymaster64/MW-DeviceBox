@@ -6,12 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies (uhubctl for USB power control)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends uhubctl && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies first for better layer caching
+# Install dependencies first for better layer caching
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

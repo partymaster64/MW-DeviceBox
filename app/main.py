@@ -10,7 +10,6 @@ from fastapi.staticfiles import StaticFiles
 from app.api import devices, health, info, settings, watchtower
 from app.config import settings as app_settings
 from app.devices.barcode_scanner import BarcodeScanner
-from app.devices.usb_power import UsbPowerController
 from app.logging_config import setup_logging
 from app.services.pos_polling import PosPollingService
 from app.services.settings_store import SettingsStore
@@ -34,12 +33,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Initialize settings store (persistent JSON)
     settings_store = SettingsStore()
 
-    # Initialize USB power controller (method from settings)
-    usb_power = UsbPowerController(method=settings_store.usb_power.method)
-
     # Initialize barcode scanner (device discovery + session-based reading)
     scanner = BarcodeScanner()
-    scanner.set_power_controller(usb_power)
     scanner.start()
     devices.set_scanner(scanner)
 
@@ -51,7 +46,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     pos_service.start()
 
     # Inject dependencies into settings API
-    settings.set_dependencies(settings_store, pos_service, usb_power)
+    settings.set_dependencies(settings_store, pos_service)
 
     yield
 
