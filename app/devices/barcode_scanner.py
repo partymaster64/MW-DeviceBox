@@ -143,6 +143,7 @@ class BarcodeScanner:
         except Exception as exc:
             logger.error("Failed to open scanner at %s: %s", device_path, exc)
             self._connected = False
+            time.sleep(DISCOVERY_INTERVAL)
             return
 
         while self._running:
