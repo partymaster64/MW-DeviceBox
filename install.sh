@@ -249,7 +249,7 @@ create_systemd_service() {
     cat > /etc/systemd/system/iot-gateway.service <<SERVICEEOF
 [Unit]
 Description=IoT Gateway Service
-Documentation=https://github.com/USERNAME/iot-gateway
+Documentation=https://github.com/partymaster64/iot-gateway
 After=docker.service
 Requires=docker.service
 

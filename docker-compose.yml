@@ -1,6 +1,6 @@
 services:
   gateway:
-    image: ghcr.io/USERNAME/iot-gateway:latest
+    image: ghcr.io/partymaster64/iot-gateway:latest
     container_name: iot-gateway
     restart: always
     ports:
