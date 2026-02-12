@@ -19,10 +19,6 @@
                     <i class="lucide lucide-settings"></i>
                     <h1>Einstellungen</h1>
                 </div>
-                <div class="header-status" id="connectionStatus">
-                    <i class="lucide lucide-wifi-off"></i>
-                    <span>Verbinde...</span>
-                </div>
             </div>
         </header>
 
@@ -32,7 +28,7 @@
             <section class="settings-section">
                 <div class="section-header">
                     <i class="lucide lucide-monitor-smartphone"></i>
-                    <h2>POS-Verbindung</h2>
+                    <h2>Kassensystem-Verbindung</h2>
                 </div>
 
                 <!-- Status Card -->
@@ -51,40 +47,40 @@
                     <div class="form-group">
                         <label for="posUrl">
                             <i class="lucide lucide-link"></i>
-                            POS API URL
+                            Server-Adresse
                         </label>
                         <input
                             type="url"
                             id="posUrl"
-                            placeholder="https://pos.example.com"
+                            placeholder="z.B. https://kasse.meinladen.de"
                             autocomplete="url"
                         >
-                        <span class="form-hint">Die Basis-URL des POS-Systems (ohne /api/...)</span>
+                        <span class="form-hint">Die Adresse des Kassensystems (ohne /api/...)</span>
                     </div>
 
                     <div class="form-group">
                         <label for="posToken">
                             <i class="lucide lucide-key"></i>
-                            API Token
+                            Zugangsschluessel
                         </label>
                         <div class="input-with-toggle">
                             <input
                                 type="password"
                                 id="posToken"
-                                placeholder="Token eingeben"
+                                placeholder="Schluessel eingeben"
                                 autocomplete="off"
                             >
-                            <button class="btn-icon input-toggle" onclick="toggleTokenVisibility()" title="Token anzeigen/verbergen">
+                            <button class="btn-icon input-toggle" onclick="toggleTokenVisibility()" title="Schluessel anzeigen/verbergen">
                                 <i class="lucide lucide-eye" id="tokenToggleIcon"></i>
                             </button>
                         </div>
-                        <span class="form-hint">Wird vom POS-System generiert</span>
+                        <span class="form-hint">Wird vom Kassensystem erzeugt und hier eingetragen</span>
                     </div>
 
                     <div class="form-group">
                         <label for="posPollInterval">
                             <i class="lucide lucide-timer"></i>
-                            Polling-Intervall (Sekunden)
+                            Abfrage-Intervall
                         </label>
                         <input
                             type="number"
@@ -93,7 +89,7 @@
                             max="30"
                             value="2"
                         >
-                        <span class="form-hint">Wie oft das POS-System abgefragt wird (1-30s)</span>
+                        <span class="form-hint">Wie oft die DeviceBox beim Kassensystem nachfragt (in Sekunden, 1-30)</span>
                     </div>
 
                     <div class="form-actions">
@@ -115,84 +111,32 @@
                 </div>
             </section>
 
-            <!-- USB Power Section -->
+            <!-- Help Section -->
             <section class="settings-section">
                 <div class="section-header">
-                    <i class="lucide lucide-zap"></i>
-                    <h2>USB-Stromsteuerung</h2>
-                </div>
-
-                <div class="settings-form">
-                    <div class="form-group">
-                        <label for="usbPowerMethod">
-                            <i class="lucide lucide-plug-zap"></i>
-                            Methode
-                        </label>
-                        <select id="usbPowerMethod">
-                            <option value="bind_unbind">Bind/Unbind (Standard)</option>
-                            <option value="uhubctl">uhubctl (Strom abschalten)</option>
-                            <option value="none">Deaktiviert</option>
-                        </select>
-                        <span class="form-hint" id="usbPowerHint">
-                            Bind/Unbind trennt das Geraet logisch vom System. Sicher fuer andere USB-Geraete.
-                        </span>
-                        <div class="uhubctl-warning" id="uhubctlWarning" style="display: none;">
-                            <i class="lucide lucide-triangle-alert"></i>
-                            <span>uhubctl schaltet auf dem Raspberry Pi 5 <strong>alle USB-Ports gleichzeitig</strong> ab. Nur verwenden wenn der Scanner das einzige USB-Geraet ist.</span>
-                        </div>
-                        <div class="uhubctl-unavailable" id="uhubctlUnavailable" style="display: none;">
-                            <i class="lucide lucide-circle-alert"></i>
-                            <span>uhubctl ist nicht installiert oder nicht verfuegbar.</span>
-                        </div>
-                    </div>
-
-                    <div class="form-actions">
-                        <button class="btn btn-primary" onclick="saveUsbPowerSettings()" id="btnSaveUsb">
-                            <i class="lucide lucide-save"></i>
-                            Speichern
-                        </button>
-                    </div>
-
-                    <div class="test-result" id="usbTestResult" style="display: none;">
-                        <i class="lucide" id="usbTestResultIcon"></i>
-                        <span id="usbTestResultMessage"></span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Info Section -->
-            <section class="settings-section">
-                <div class="section-header">
-                    <i class="lucide lucide-info"></i>
-                    <h2>Hinweise</h2>
+                    <i class="lucide lucide-circle-help"></i>
+                    <h2>So funktioniert es</h2>
                 </div>
                 <div class="settings-info">
                     <div class="info-item">
                         <i class="lucide lucide-shield-check"></i>
                         <div>
-                            <strong>Token-Sicherheit</strong>
-                            <p>Der API-Token wird vom POS-System generiert und lokal auf der DeviceBox gespeichert. Er wird nur fuer die Kommunikation mit dem POS-System verwendet.</p>
+                            <strong>Sicherheit</strong>
+                            <p>Der Zugangsschluessel wird sicher auf dieser DeviceBox gespeichert und nur fuer die Verbindung zum Kassensystem verwendet.</p>
                         </div>
                     </div>
                     <div class="info-item">
                         <i class="lucide lucide-scan-barcode"></i>
                         <div>
-                            <strong>Scan-Ablauf</strong>
-                            <p>Der Barcode-Scanner wird nur aktiviert wenn das POS-System eine Scan-Session anfordert. Gescannte Barcodes werden direkt an das POS-System gesendet.</p>
+                            <strong>Barcode scannen</strong>
+                            <p>Der Scanner wird automatisch aktiv wenn das Kassensystem einen Scan-Auftrag sendet. Alle gescannten Barcodes werden sofort an die Kasse uebertragen.</p>
                         </div>
                     </div>
                     <div class="info-item">
                         <i class="lucide lucide-refresh-cw"></i>
                         <div>
-                            <strong>Polling</strong>
-                            <p>Die DeviceBox fragt das POS-System regelmaessig nach aktiven Scan-Sessions ab. Ein niedrigeres Intervall bedeutet schnellere Reaktion, aber mehr Netzwerkverkehr.</p>
-                        </div>
-                    </div>
-                    <div class="info-item">
-                        <i class="lucide lucide-zap"></i>
-                        <div>
-                            <strong>USB-Stromsteuerung</strong>
-                            <p>Der USB-Port des Scanners wird automatisch ein-/ausgeschaltet wenn eine Scan-Session startet/endet. Bei "Bind/Unbind" wird der Scanner logisch getrennt. Bei "uhubctl" wird der Strom physisch abgeschaltet (betrifft alle USB-Ports).</p>
+                            <strong>Automatische Verbindung</strong>
+                            <p>Die DeviceBox prueft regelmaessig ob das Kassensystem einen Scan-Auftrag hat. Ein kleinerer Wert beim Abfrage-Intervall bedeutet schnellere Reaktion.</p>
                         </div>
                     </div>
                 </div>

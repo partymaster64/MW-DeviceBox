@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeviceBox - IoT Gateway</title>
+    <title>DeviceBox</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.min.css">
 </head>
@@ -17,99 +17,90 @@
                     <h1>DeviceBox</h1>
                 </div>
                 <div class="header-actions">
-                    <a href="/settings" class="btn-icon header-settings-link" title="Einstellungen">
+                    <a href="/settings" class="header-settings-btn" title="Einstellungen">
                         <i class="lucide lucide-settings"></i>
+                        <span>Einstellungen</span>
                     </a>
-                    <div class="header-status" id="connectionStatus">
-                        <i class="lucide lucide-wifi-off"></i>
-                        <span>Verbinde...</span>
-                    </div>
                 </div>
             </div>
         </header>
 
         <!-- Main Content -->
         <main class="main">
-            <!-- Status Cards -->
-            <section class="cards">
-                <div class="card" id="healthCard">
-                    <div class="card-icon card-icon-green">
-                        <i class="lucide lucide-heart-pulse"></i>
-                    </div>
-                    <div class="card-body">
-                        <h3>Status</h3>
-                        <p class="card-value" id="healthStatus">--</p>
-                    </div>
-                </div>
 
-                <div class="card" id="deviceCard">
-                    <div class="card-icon card-icon-blue">
-                        <i class="lucide lucide-cpu"></i>
-                    </div>
-                    <div class="card-body">
-                        <h3>Geraet</h3>
-                        <p class="card-value" id="deviceName">--</p>
-                    </div>
+            <!-- Big status banner -->
+            <section class="status-banner" id="statusBanner">
+                <div class="status-banner-icon" id="statusBannerIcon">
+                    <i class="lucide lucide-loader"></i>
                 </div>
-
-                <div class="card" id="versionCard">
-                    <div class="card-icon card-icon-yellow">
-                        <i class="lucide lucide-tag"></i>
-                    </div>
-                    <div class="card-body">
-                        <h3>Version</h3>
-                        <p class="card-value" id="appVersion">--</p>
-                    </div>
+                <div class="status-banner-text">
+                    <div class="status-banner-title" id="statusBannerTitle">Wird geladen...</div>
+                    <div class="status-banner-subtitle" id="statusBannerSubtitle">Bitte warten</div>
                 </div>
+            </section>
 
-                <div class="card" id="watchtowerCard">
-                    <div class="card-icon card-icon-purple" id="watchtowerIcon">
-                        <i class="lucide lucide-refresh-cw"></i>
+            <!-- Two-column overview -->
+            <div class="overview-grid">
+                <!-- Scanner Card -->
+                <section class="overview-card">
+                    <div class="overview-card-header">
+                        <i class="lucide lucide-scan-barcode"></i>
+                        <h2>Barcode-Scanner</h2>
                     </div>
-                    <div class="card-body">
-                        <h3>Auto-Update</h3>
-                        <p class="card-value" id="watchtowerStatus">--</p>
-                        <p class="card-sub" id="watchtowerDetail"></p>
+                    <div class="overview-card-body">
+                        <div class="status-indicator" id="scannerIndicator">
+                            <div class="status-dot" id="scannerDot"></div>
+                            <span class="status-label" id="scannerLabel">Wird gesucht...</span>
+                        </div>
+                        <div class="status-detail" id="scannerDetail"></div>
                     </div>
-                </div>
+                </section>
 
-                <div class="card card-clickable" id="posCard" onclick="window.location.href='/settings'">
-                    <div class="card-icon card-icon-cyan" id="posCardIcon">
+                <!-- POS Card -->
+                <section class="overview-card overview-card-clickable" onclick="window.location.href='/settings'">
+                    <div class="overview-card-header">
                         <i class="lucide lucide-monitor-smartphone"></i>
+                        <h2>Kassensystem</h2>
+                        <i class="lucide lucide-chevron-right overview-card-arrow"></i>
                     </div>
-                    <div class="card-body">
-                        <h3>POS-Verbindung</h3>
-                        <p class="card-value" id="posStatus">--</p>
-                        <p class="card-sub" id="posDetail"></p>
+                    <div class="overview-card-body">
+                        <div class="status-indicator" id="posIndicator">
+                            <div class="status-dot" id="posDot"></div>
+                            <span class="status-label" id="posLabel">Wird geladen...</span>
+                        </div>
+                        <div class="status-detail" id="posDetailText"></div>
                     </div>
+                </section>
+            </div>
+
+            <!-- System info row -->
+            <section class="system-info-row">
+                <div class="system-info-item">
+                    <i class="lucide lucide-cpu"></i>
+                    <span class="system-info-label">Geraet</span>
+                    <span class="system-info-value" id="deviceName">--</span>
+                </div>
+                <div class="system-info-item">
+                    <i class="lucide lucide-tag"></i>
+                    <span class="system-info-label">Version</span>
+                    <span class="system-info-value" id="appVersion">--</span>
+                </div>
+                <div class="system-info-item" id="watchtowerItem">
+                    <i class="lucide lucide-refresh-cw"></i>
+                    <span class="system-info-label">Auto-Update</span>
+                    <span class="system-info-value" id="watchtowerStatus">--</span>
                 </div>
             </section>
 
-            <!-- Devices Section -->
-            <section class="devices-section">
-                <div class="section-header">
-                    <i class="lucide lucide-plug"></i>
-                    <h2>Erkannte Geraete</h2>
-                    <button class="btn-icon" onclick="fetchDevices()" title="Aktualisieren">
-                        <i class="lucide lucide-refresh-cw"></i>
-                    </button>
-                </div>
-                <div class="devices-list" id="devicesList">
-                    <div class="device-empty">Lade Geraete...</div>
-                </div>
-            </section>
-
-            <!-- Log Section -->
+            <!-- Activity Log (collapsed by default) -->
             <section class="log-section">
-                <div class="section-header">
+                <button class="log-toggle" onclick="toggleLog()" id="logToggle">
                     <i class="lucide lucide-terminal"></i>
-                    <h2>Aktivitaet</h2>
-                    <button class="btn-icon" onclick="clearLog()" title="Log leeren">
-                        <i class="lucide lucide-trash-2"></i>
-                    </button>
-                </div>
-                <div class="log-container" id="logContainer">
-                    <div class="log-empty">Noch keine Aktivitaet</div>
+                    <span>Systemprotokoll</span>
+                    <i class="lucide lucide-chevron-down" id="logChevron"></i>
+                </button>
+                <div class="log-container" id="logContainer" style="display: none;">
+                    <div class="log-empty">Noch keine Eintraege</div>
                 </div>
             </section>
         </main>

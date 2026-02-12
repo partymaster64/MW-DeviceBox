@@ -1,27 +1,26 @@
 // =============================================================================
-// DeviceBox - IoT Gateway Dashboard
+// DeviceBox - Dashboard
 // =============================================================================
 
 const API_BASE = window.location.origin;
 let pollInterval = null;
+let isOnline = false;
+let logVisible = false;
 
 // --- Initialization ---
 
 document.addEventListener('DOMContentLoaded', () => {
+    fetchAll();
+    pollInterval = setInterval(fetchAll, 4000);
+});
+
+function fetchAll() {
     fetchHealth();
     fetchInfo();
     fetchDevices();
     fetchWatchtower();
     fetchPosStatus();
-
-    // Poll every 5 seconds
-    pollInterval = setInterval(() => {
-        fetchHealth();
-        fetchDevices();
-        fetchWatchtower();
-        fetchPosStatus();
-    }, 5000);
-});
+}
 
 // --- API Calls ---
 
@@ -29,40 +28,24 @@ async function fetchHealth() {
     try {
         const res = await fetch(`${API_BASE}/health`);
         const data = await res.json();
-        const el = document.getElementById('healthStatus');
-
-        if (data.status === 'ok') {
-            el.textContent = 'Online';
-            el.style.color = 'var(--green)';
-            setOnline();
-        } else {
-            el.textContent = 'Fehler';
-            el.style.color = 'var(--red)';
-            setOffline();
-        }
+        isOnline = data.status === 'ok';
     } catch {
-        document.getElementById('healthStatus').textContent = 'Offline';
-        document.getElementById('healthStatus').style.color = 'var(--red)';
-        setOffline();
+        isOnline = false;
     }
+    updateBanner();
 }
 
 async function fetchInfo() {
     try {
         const res = await fetch(`${API_BASE}/info`);
-        if (!res.ok) {
-            addLog('error', `Info-Abfrage fehlgeschlagen (HTTP ${res.status})`);
-            return;
-        }
+        if (!res.ok) return;
         const data = await res.json();
 
         document.getElementById('deviceName').textContent = data.device_name;
         document.getElementById('appVersion').textContent = `v${data.version}`;
         document.getElementById('footerVersion').textContent = `v${data.version}`;
-
-        addLog('info', `Verbunden mit ${data.device_name} v${data.version}`);
-    } catch (err) {
-        addLog('error', `Verbindung fehlgeschlagen: ${err.message}`);
+    } catch {
+        // ignore
     }
 }
 
@@ -71,219 +54,204 @@ async function fetchWatchtower() {
         const res = await fetch(`${API_BASE}/watchtower/status`);
         if (!res.ok) return;
         const data = await res.json();
-
-        const statusEl = document.getElementById('watchtowerStatus');
-        const detailEl = document.getElementById('watchtowerDetail');
-        const iconEl = document.getElementById('watchtowerIcon');
+        const el = document.getElementById('watchtowerStatus');
 
         if (data.running) {
-            statusEl.textContent = 'Aktiv';
-            statusEl.style.color = 'var(--green)';
-            iconEl.className = 'card-icon card-icon-purple';
-
-            const parts = [];
-            parts.push(`alle ${data.interval}s`);
-            if (data.containers_scanned !== null) {
-                parts.push(`${data.containers_scanned} gescannt`);
-            }
-            if (data.containers_updated !== null && data.containers_updated > 0) {
-                parts.push(`${data.containers_updated} aktualisiert`);
-            }
-            detailEl.textContent = parts.join(' · ');
+            el.textContent = 'Aktiv';
+            el.style.color = 'var(--green)';
         } else {
-            statusEl.textContent = 'Inaktiv';
-            statusEl.style.color = 'var(--red)';
-            iconEl.className = 'card-icon card-icon-purple';
-            detailEl.textContent = 'Nicht erreichbar';
+            el.textContent = 'Inaktiv';
+            el.style.color = 'var(--text-muted)';
         }
     } catch {
-        // Silently ignore
+        // ignore
     }
 }
+
+// --- Scanner Status ---
+
+let scannerConnected = false;
+let scannerSessionActive = false;
+let scannerName = '';
+
+async function fetchDevices() {
+    try {
+        const res = await fetch(`${API_BASE}/devices`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.devices && data.devices.length > 0) {
+            const dev = data.devices[0];
+            scannerConnected = dev.connected;
+            scannerSessionActive = dev.session_active;
+            scannerName = dev.name;
+        } else {
+            scannerConnected = false;
+            scannerSessionActive = false;
+            scannerName = '';
+        }
+    } catch {
+        scannerConnected = false;
+    }
+    renderScanner();
+    updateBanner();
+}
+
+function renderScanner() {
+    const dot = document.getElementById('scannerDot');
+    const label = document.getElementById('scannerLabel');
+    const detail = document.getElementById('scannerDetail');
+
+    if (scannerConnected) {
+        if (scannerSessionActive) {
+            dot.className = 'status-dot dot-pulse-green';
+            label.textContent = 'Aktiv - scannt Barcodes';
+            label.style.color = 'var(--green)';
+        } else {
+            dot.className = 'status-dot dot-green';
+            label.textContent = 'Verbunden und bereit';
+            label.style.color = 'var(--green)';
+        }
+        detail.textContent = scannerName || 'Barcode Scanner';
+    } else {
+        dot.className = 'status-dot dot-red';
+        label.textContent = 'Nicht verbunden';
+        label.style.color = 'var(--red)';
+        detail.textContent = 'Bitte Scanner anschliessen';
+    }
+}
+
+// --- POS Status ---
+
+let posStatus = 'stopped';
+let posDetail = '';
 
 async function fetchPosStatus() {
     try {
         const res = await fetch(`${API_BASE}/settings/pos/status`);
         if (!res.ok) return;
         const data = await res.json();
-        renderPosStatus(data);
+        posStatus = data.status;
+        posDetail = data.detail || '';
     } catch {
-        // Silently ignore
+        posStatus = 'stopped';
     }
+    renderPos();
+    updateBanner();
 }
 
-async function fetchDevices() {
-    try {
-        const res = await fetch(`${API_BASE}/devices`);
-        const data = await res.json();
-        renderDevices(data.devices);
-    } catch {
-        document.getElementById('devicesList').innerHTML =
-            '<div class="device-empty">Geraete konnten nicht geladen werden</div>';
-    }
-}
+function renderPos() {
+    const dot = document.getElementById('posDot');
+    const label = document.getElementById('posLabel');
+    const detail = document.getElementById('posDetailText');
 
-// --- Render Functions ---
-
-function renderPosStatus(data) {
-    const statusEl = document.getElementById('posStatus');
-    const detailEl = document.getElementById('posDetail');
-    const iconEl = document.getElementById('posCardIcon');
-
-    const statusMap = {
+    const states = {
         'not_configured': {
-            text: 'Nicht konfiguriert',
+            dotClass: 'dot-yellow',
+            text: 'Nicht eingerichtet',
+            detail: 'Einstellungen oeffnen zum Verbinden',
             color: 'var(--yellow)',
-            iconClass: 'card-icon card-icon-yellow',
         },
         'polling': {
+            dotClass: 'dot-green',
             text: 'Verbunden',
+            detail: 'Wartet auf Scan-Auftrag vom Kassensystem',
             color: 'var(--green)',
-            iconClass: 'card-icon card-icon-cyan',
         },
         'session_active': {
-            text: 'Scan aktiv',
+            dotClass: 'dot-pulse-green',
+            text: 'Scan-Auftrag aktiv',
+            detail: 'Barcodes werden an Kasse gesendet',
             color: 'var(--green)',
-            iconClass: 'card-icon card-icon-green',
         },
         'error': {
-            text: 'Fehler',
+            dotClass: 'dot-red',
+            text: 'Verbindungsfehler',
+            detail: posDetail || 'Einstellungen pruefen',
             color: 'var(--red)',
-            iconClass: 'card-icon card-icon-red',
         },
         'stopped': {
-            text: 'Gestoppt',
+            dotClass: 'dot-gray',
+            text: 'Inaktiv',
+            detail: '',
             color: 'var(--text-muted)',
-            iconClass: 'card-icon card-icon-cyan',
         },
     };
 
-    const cfg = statusMap[data.status] || statusMap['stopped'];
+    const cfg = states[posStatus] || states['stopped'];
 
-    statusEl.textContent = cfg.text;
-    statusEl.style.color = cfg.color;
-    iconEl.className = cfg.iconClass;
-
-    const details = [];
-    if (data.detail) details.push(data.detail);
-    if (data.scanner_connected) {
-        details.push('Scanner bereit');
-    }
-    detailEl.textContent = details.join(' · ');
+    dot.className = `status-dot ${cfg.dotClass}`;
+    label.textContent = cfg.text;
+    label.style.color = cfg.color;
+    detail.textContent = cfg.detail;
 }
 
-function renderDevices(devices) {
-    const container = document.getElementById('devicesList');
+// --- Global Banner ---
 
-    if (!devices || devices.length === 0) {
-        container.innerHTML = '<div class="device-empty">Keine Geraete erkannt</div>';
+function updateBanner() {
+    const banner = document.getElementById('statusBanner');
+    const icon = document.getElementById('statusBannerIcon');
+    const title = document.getElementById('statusBannerTitle');
+    const subtitle = document.getElementById('statusBannerSubtitle');
+
+    if (!isOnline) {
+        banner.className = 'status-banner banner-red';
+        icon.innerHTML = '<i class="lucide lucide-wifi-off"></i>';
+        title.textContent = 'DeviceBox ist nicht erreichbar';
+        subtitle.textContent = 'Bitte Netzwerkverbindung pruefen';
         return;
     }
 
-    container.innerHTML = devices.map(device => {
-        const typeLabel = getDeviceTypeLabel(device.type);
-        const typeIcon = getDeviceTypeIcon(device.type);
-        const powerState = device.power_state || 'unknown';
-
-        // Determine display status based on power state and connection
-        let statusClass, statusIcon, statusLabel;
-        if (device.connected) {
-            statusClass = 'connected';
-            statusIcon = 'lucide-circle-check';
-            statusLabel = 'Verbunden';
-        } else if (powerState === 'off') {
-            statusClass = 'standby';
-            statusIcon = 'lucide-moon';
-            statusLabel = 'Standby';
-        } else {
-            statusClass = 'disconnected';
-            statusIcon = 'lucide-circle-x';
-            statusLabel = 'Getrennt';
-        }
-
-        // Power badge
-        const powerBadge = getPowerBadge(powerState);
-
-        return `
-            <div class="device-card">
-                <div class="device-card-icon ${statusClass}">
-                    <i class="lucide ${typeIcon}"></i>
-                </div>
-                <div class="device-card-body">
-                    <div class="device-card-name">${escapeHtml(device.name)} ${powerBadge}</div>
-                    <div class="device-card-meta">${typeLabel} &middot; ${escapeHtml(device.device_path)}</div>
-                </div>
-                <div class="device-card-status ${statusClass}">
-                    <i class="lucide ${statusIcon}"></i>
-                    ${statusLabel}
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function getPowerBadge(powerState) {
-    const config = {
-        'on': { icon: 'lucide-zap', label: 'USB an', cssClass: 'power-on' },
-        'off': { icon: 'lucide-zap-off', label: 'USB aus', cssClass: 'power-off' },
-        'unknown': { icon: 'lucide-help-circle', label: 'USB ?', cssClass: 'power-unknown' },
-    };
-
-    const cfg = config[powerState] || config['unknown'];
-    return `<span class="power-badge ${cfg.cssClass}"><i class="lucide ${cfg.icon}"></i>${cfg.label}</span>`;
-}
-
-// --- UI Helpers ---
-
-function setOnline() {
-    const status = document.getElementById('connectionStatus');
-    status.className = 'header-status online';
-    status.innerHTML = '<i class="lucide lucide-wifi"></i><span>Verbunden</span>';
-}
-
-function setOffline() {
-    const status = document.getElementById('connectionStatus');
-    status.className = 'header-status offline';
-    status.innerHTML = '<i class="lucide lucide-wifi-off"></i><span>Getrennt</span>';
-}
-
-function getDeviceTypeLabel(type) {
-    const labels = {
-        'barcode_scanner': 'Barcode Scanner',
-    };
-    return labels[type] || type;
-}
-
-function getDeviceTypeIcon(type) {
-    const icons = {
-        'barcode_scanner': 'lucide-scan-barcode',
-    };
-    return icons[type] || 'lucide-box';
-}
-
-function formatTimestamp(isoString) {
-    try {
-        const date = new Date(isoString);
-        return date.toLocaleString('de-DE', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-        });
-    } catch {
-        return isoString;
+    if (posStatus === 'session_active' && scannerConnected) {
+        banner.className = 'status-banner banner-green banner-pulse';
+        icon.innerHTML = '<i class="lucide lucide-scan-barcode"></i>';
+        title.textContent = 'Scan-Modus aktiv';
+        subtitle.textContent = 'Barcodes werden an das Kassensystem gesendet';
+        return;
     }
-}
 
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    if (posStatus === 'error') {
+        banner.className = 'status-banner banner-red';
+        icon.innerHTML = '<i class="lucide lucide-circle-alert"></i>';
+        title.textContent = 'Kassensystem-Verbindung fehlgeschlagen';
+        subtitle.textContent = posDetail || 'Einstellungen pruefen';
+        return;
+    }
+
+    if (posStatus === 'not_configured') {
+        banner.className = 'status-banner banner-yellow';
+        icon.innerHTML = '<i class="lucide lucide-settings"></i>';
+        title.textContent = 'Kassensystem nicht eingerichtet';
+        subtitle.textContent = 'Oeffne die Einstellungen um die Verbindung herzustellen';
+        return;
+    }
+
+    if (!scannerConnected) {
+        banner.className = 'status-banner banner-yellow';
+        icon.innerHTML = '<i class="lucide lucide-unplug"></i>';
+        title.textContent = 'Scanner nicht verbunden';
+        subtitle.textContent = 'Bitte Barcode-Scanner per USB anschliessen';
+        return;
+    }
+
+    // All good
+    banner.className = 'status-banner banner-green';
+    icon.innerHTML = '<i class="lucide lucide-circle-check"></i>';
+    title.textContent = 'Alles bereit';
+    subtitle.textContent = 'Scanner verbunden, Kassensystem erreichbar';
 }
 
 // --- Log ---
+
+function toggleLog() {
+    const container = document.getElementById('logContainer');
+    const chevron = document.getElementById('logChevron');
+    logVisible = !logVisible;
+    container.style.display = logVisible ? 'block' : 'none';
+    chevron.className = logVisible
+        ? 'lucide lucide-chevron-up'
+        : 'lucide lucide-chevron-down';
+}
 
 function addLog(type, message) {
     const container = document.getElementById('logContainer');
@@ -304,14 +272,12 @@ function addLog(type, message) {
     container.appendChild(entry);
     container.scrollTop = container.scrollHeight;
 
-    // Keep max 50 entries
     const entries = container.querySelectorAll('.log-entry');
-    if (entries.length > 50) {
-        entries[0].remove();
-    }
+    if (entries.length > 50) entries[0].remove();
 }
 
-function clearLog() {
-    const container = document.getElementById('logContainer');
-    container.innerHTML = '<div class="log-empty">Noch keine Aktivitaet</div>';
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
