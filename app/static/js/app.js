@@ -56,6 +56,10 @@ async function fetchHealth() {
 async function fetchInfo() {
     try {
         const res = await fetch(`${API_BASE}/info`);
+        if (!res.ok) {
+            addLog('error', `Info-Abfrage fehlgeschlagen (HTTP ${res.status})`);
+            return;
+        }
         const data = await res.json();
 
         document.getElementById('deviceName').textContent = data.device_name;
