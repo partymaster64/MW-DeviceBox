@@ -125,26 +125,10 @@ class BarcodeScanner:
                 time.sleep(DISCOVERY_INTERVAL)
 
     def _read_device(self, device_path: str) -> None:
-        """Read barcode data from the HID device using the usb_barcode_scanner library."""
-        try:
-            from usb_barcode_scanner.scanner import BarcodeReader
-        except ImportError:
-            logger.error(
-                "usb_barcode_scanner library not installed. "
-                "Install with: pip install usb-barcode-scanner-julz. "
-                "Scanner thread will stop."
-            )
-            self._connected = False
-            self._running = False
-            return
+        """Read barcode data from the HID device using the built-in HID reader."""
+        from app.devices.hid_reader import read_barcode
 
-        try:
-            reader = BarcodeReader(device_path)
-        except Exception as exc:
-            logger.error("Failed to open scanner at %s: %s", device_path, exc)
-            self._connected = False
-            time.sleep(DISCOVERY_INTERVAL)
-            return
+        logger.info("Opening scanner device %s for reading", device_path)
 
         while self._running:
             # Check if device still exists
@@ -155,14 +139,29 @@ class BarcodeScanner:
                 return
 
             try:
-                barcode = reader.read_barcode()
-            except Exception:
-                # Device was disconnected during read
+                barcode = read_barcode(device_path)
+            except PermissionError:
+                logger.error(
+                    "Permission denied reading %s - ensure container has device access",
+                    device_path,
+                )
+                self._connected = False
+                self._device_path = None
+                return
+            except OSError as exc:
+                logger.warning("Scanner device read error: %s", exc)
                 self._connected = False
                 self._device_path = None
                 return
 
-            if barcode and barcode.strip():
+            if barcode is None:
+                # Device disconnected (read returned empty)
+                logger.warning("Scanner device %s disconnected during read", device_path)
+                self._connected = False
+                self._device_path = None
+                return
+
+            if barcode.strip():
                 barcode = barcode.strip()
                 entry = ScanEntry(
                     barcode=barcode,

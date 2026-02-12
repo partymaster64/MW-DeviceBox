@@ -21,4 +21,4 @@ services:
       - DOCKER_API_VERSION=1.46
       - WATCHTOWER_HTTP_API_METRICS=true
       - WATCHTOWER_HTTP_API_TOKEN=devicebox-watchtower
-    command: --interval 15 --http-api-update
+    command: --interval 15 --http-api-metrics
