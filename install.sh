@@ -179,10 +179,20 @@ ENVEOF
 setup_ghcr_auth() {
     log_info "GitHub Container Registry Authentifizierung..."
 
-    local ghcr_configured=false
+    # Image-Referenz vollstaendig aus der docker-compose.yml extrahieren
+    local full_image
+    full_image=$(grep -oP 'image:\s*\K\S+' "$INSTALL_DIR/docker-compose.yml" | grep 'ghcr\.io' | head -1)
 
-    # Pruefen ob bereits authentifiziert
-    if docker pull ghcr.io/$(grep -oP 'ghcr\.io/\K[^:]+' "$INSTALL_DIR/docker-compose.yml" | head -1):latest &>/dev/null 2>&1; then
+    if [[ -z "$full_image" ]]; then
+        log_warn "Kein ghcr.io Image in docker-compose.yml gefunden, ueberspringe Authentifizierung"
+        return
+    fi
+
+    log_info "Image: $full_image"
+
+    # Pruefen ob bereits authentifiziert (Test-Pull des vollstaendigen Image)
+    local ghcr_configured=false
+    if docker pull "$full_image" &>/dev/null 2>&1; then
         ghcr_configured=true
     fi
 
@@ -192,6 +202,7 @@ setup_ghcr_auth() {
         log_warn " ghcr.io Authentifizierung erforderlich"
         log_warn "============================================="
         echo ""
+        echo "Image '$full_image' konnte nicht gepullt werden."
         echo "Falls das Repository PRIVAT ist, muss Docker sich bei ghcr.io anmelden."
         echo "Erstelle einen GitHub Personal Access Token (PAT) mit 'read:packages' Berechtigung:"
         echo "  https://github.com/settings/tokens/new"
@@ -204,16 +215,23 @@ setup_ghcr_auth() {
 
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
-            # Credentials auch fuer den Service-User verfuegbar machen
-            mkdir -p /root/.docker
+            # Docker-Credentials systemweit verfuegbar machen,
+            # damit der systemd-Service und alle Benutzer darauf zugreifen koennen
+            local docker_config_dir="$INSTALL_DIR/.docker"
+            mkdir -p "$docker_config_dir"
             if [[ -f /root/.docker/config.json ]]; then
-                log_success "ghcr.io Authentifizierung erfolgreich"
+                cp /root/.docker/config.json "$docker_config_dir/config.json"
+                chmod 640 "$docker_config_dir/config.json"
+                chown root:docker "$docker_config_dir/config.json"
+                log_success "ghcr.io Authentifizierung erfolgreich (Config: $docker_config_dir)"
+            else
+                log_error "Docker config.json nicht gefunden nach Login"
             fi
         else
             log_info "Ueberspringe Authentifizierung (oeffentliches Repository)"
         fi
     else
-        log_success "ghcr.io ist bereits konfiguriert"
+        log_success "ghcr.io ist bereits konfiguriert (Image Pull erfolgreich)"
     fi
 }
 
@@ -221,6 +239,12 @@ setup_ghcr_auth() {
 
 create_systemd_service() {
     log_info "Systemd-Service wird erstellt..."
+
+    # DOCKER_CONFIG setzen falls Credentials vorhanden
+    local docker_config_env=""
+    if [[ -f "$INSTALL_DIR/.docker/config.json" ]]; then
+        docker_config_env="Environment=DOCKER_CONFIG=$INSTALL_DIR/.docker"
+    fi
 
     cat > /etc/systemd/system/iot-gateway.service <<SERVICEEOF
 [Unit]
@@ -233,10 +257,11 @@ Requires=docker.service
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=$INSTALL_DIR
+$docker_config_env
 ExecStartPre=/usr/bin/docker compose pull
 ExecStart=/usr/bin/docker compose up -d
 ExecStop=/usr/bin/docker compose down
-ExecReload=/usr/bin/docker compose pull && /usr/bin/docker compose up -d
+ExecReload=/bin/bash -c '/usr/bin/docker compose pull && /usr/bin/docker compose up -d'
 TimeoutStartSec=300
 
 [Install]
